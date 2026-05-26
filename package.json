@@ -13,7 +13,8 @@
   "files": [
     "dist",
     "src/prompts/*.md",
-    "!src/prompts/REVIEW.md"
+    "!src/prompts/REVIEW.md",
+    "src/skills"
   ],
   "scripts": {
     "build": "tsc -p . && chmod +x dist/cli.js",

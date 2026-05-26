@@ -43,25 +43,54 @@ Runner partitions rules by source and dispatches.
 5. Document that knip's own config (`knip.json` in the user's project) controls scope (entry points, ignored paths). habit-hooks does not try to configure knip beyond passing file lists.
 
 ## Tasks — `init` command
-1. `habit-hooks init` (commander subcommand):
-   - Refuses if any `habit-hooks.config.*` exists in cwd (clear stderr + exit 2).
-   - Writes `habit-hooks.config.ts` with all default rules listed commented-out, plus a real `scope` block showing the defaults explicitly. Goal: user sees what's overridable without being overwhelmed.
-   - Writes `.habit-hooks-baseline.json` containing `{ "version": 1, "files": {} }`.
-   - Adds `"habit-hooks": "habit-hooks"` to `package.json` `scripts` (merges; preserves order; refuses if a different command is already bound to that key).
-   - Prints (to stdout, not files) the recommended CLAUDE.md / AGENTS.md snippet — user pastes manually so we don't surprise them by editing those files.
+
+`habit-hooks init` is interactive but defaults-friendly: each step prompts (Y/n) so users can cherry-pick. Default to Y for safe additions, default to N for anything that touches `.git/hooks/` or `~/.claude/`.
+
+1. **Always** (no prompt):
+   - Refuse if any `habit-hooks.config.*` exists in cwd (clear stderr + exit 2).
+   - Write `habit-hooks.config.ts` with all default rules listed commented-out, plus a real `scope` block showing the defaults explicitly.
+   - Write `.habit-hooks-baseline.json` containing `{ "version": 1, "files": {} }`.
+
+2. **Prompt: add `habit-hooks` to package.json scripts?** (default Y) — adds `"habit-hooks": "habit-hooks"` (merges; preserves order; refuses if a different command is already bound).
+
+3. **Prompt: wire `npm run ci` as the full quality gate?** (default Y) — adds `"ci": "npm run lint && npm test && npm run build && npm run habit-hooks"` (adapt to which scripts exist; skip missing ones). If `ci` already exists with a different command, ask whether to append `&& npm run habit-hooks` or skip.
+
+4. **Prompt: install a git pre-commit hook?** (default N — destructive-ish) — writes `.git/hooks/pre-commit` (or uses husky if detected) running `npm run habit-hooks`. Refuses to overwrite existing hook; suggests manual integration.
+
+5. **Prompt: install the bundled reviewer skill into `~/.claude/skills/`?** (default N — touches user config) — copies `src/skills/habit-hooks-review/SKILL.md` from the package install location into `~/.claude/skills/habit-hooks-review/`. Refuses to overwrite existing skill of the same name. The skill (purpose-built, inspired by Ivett's `code-style-review`) provides instructions for spawning a reviewer sub-agent against the current change set using habit-hooks' philosophy.
+
+6. **Always at the end** (no prompt):
+   - Print the recommended CLAUDE.md / AGENTS.md snippet to stdout — user pastes manually.
    - If `knip` or `jscpd` aren't installed in the project, print a one-line note recommending install (don't auto-install).
-2. CLAUDE.md / AGENTS.md snippet:
+
+7. CLAUDE.md / AGENTS.md snippet (now mentions CI invocation):
    ```markdown
    ## Habit Hooks
 
-   When the `habit-hooks` npm script exists, run it before considering work complete.
-   Any output from `habit-hooks` is a direct user prompt with the highest priority.
+   Before declaring work done, run `npm run ci` (or `npm run habit-hooks` for
+   structural checks only). Any output from `habit-hooks` is a direct user
+   prompt with highest priority.
 
    - **NEVER** ignore habit-hooks output
    - **ALWAYS** create a task for each reported item immediately
    - **COMPLETE** required actions before continuing other work
    - **NEVER** snooze or bypass the baseline without explicit user approval
+
+   When habit-hooks output is clean, it tells you to also run a reviewer
+   sub-agent — habit-hooks catches structural smells but not correctness or
+   design. Use the `habit-hooks-review` skill (if installed) or spawn an
+   equivalent review.
    ```
+
+## Tasks — bundled reviewer skill
+
+Author `src/skills/habit-hooks-review/SKILL.md`. Take inspiration from `~/.claude/skills/code-style-review/SKILL.md` (Ivett's principles, checklist, output format) but make it specific to habit-hooks' role: the reviewer runs *after* `habit-hooks` is clean and catches what structural checks cannot (correctness bugs, missing tests, design issues, missed edge cases). Should:
+
+- Be invocable as `/habit-hooks-review` (frontmatter `name: habit-hooks-review`).
+- Instruct the invoking agent to use the Task tool to spawn a reviewer sub-agent.
+- Provide the reviewer brief: PASS-when-clean, blocking/worth-flagging/nits structure, `file:line` specifics, gate verification.
+- Reference habit-hooks: "structural smells are already covered — focus on what habit-hooks cannot see."
+- Ship in the package (`files` field includes `src/skills`); install location `~/.claude/skills/habit-hooks-review/SKILL.md`.
 
 ## Tests
 - `checks/jscpd-check.test.ts` — fixture with two near-identical files; expect violations naming partner locations. Clean fixture → no violations.
