@@ -40,26 +40,40 @@ async function lintFiles(eslint: ESLint, files: string[]): Promise<ESLint.LintRe
   return eslint.lintFiles(files);
 }
 
+function toViolation(
+  rule: Rule,
+  filePath: string,
+  message: Linter.LintMessage,
+): Violation {
+  return {
+    ruleId: rule.id,
+    file: filePath,
+    line: message.line,
+    column: message.column,
+    message: message.message,
+  };
+}
+
+function tryMapMessage(
+  message: Linter.LintMessage,
+  filePath: string,
+  index: Map<string, Rule>,
+): Violation | null {
+  if (!message.ruleId) return null;
+  const rule = index.get(message.ruleId);
+  if (!rule) return null;
+  return toViolation(rule, filePath, message);
+}
+
 function collectViolations(
   results: ESLint.LintResult[],
   index: Map<string, Rule>,
 ): Violation[] {
-  const violations: Violation[] = [];
-  for (const result of results) {
-    for (const message of result.messages) {
-      if (!message.ruleId) continue;
-      const rule = index.get(message.ruleId);
-      if (!rule) continue;
-      violations.push({
-        ruleId: rule.id,
-        file: result.filePath,
-        line: message.line,
-        column: message.column,
-        message: message.message,
-      });
-    }
-  }
-  return violations;
+  return results.flatMap((result) =>
+    result.messages
+      .map((m) => tryMapMessage(m, result.filePath, index))
+      .filter((v): v is Violation => v !== null),
+  );
 }
 
 export const eslintCheck: Check = {

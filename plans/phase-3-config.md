@@ -15,6 +15,8 @@ export interface RuleOverride {
   title?: string;
   description?: string;
   disabled?: boolean;
+  include?: string[];   // glob patterns; if set, rule only runs on matching files
+  exclude?: string[];   // glob patterns; rule skips matching files
 }
 
 export interface RuleDefinition extends RuleOverride {
@@ -59,6 +61,8 @@ Key-by-id keeps merging simple. If the key's record includes `source`, it's a ne
    - Replace `getRules()` with `buildRules(config: HabitHooksConfig, configDir: string): Rule[]`.
    - Resolves `config.prompts` against `configDir` to an absolute path.
    - Calls `mergeRules` then attaches resolved guidance via loader.
+8. Runner: when computing each rule's effective file list, apply `include`/`exclude` globs (using `picomatch` or `fast-glob`'s matcher). `include` empty/undefined ⇒ no narrowing; `exclude` empty/undefined ⇒ no removal.
+9. Update `defaultConfig` so `max-lines-per-function` ships with `exclude: ['**/*.test.ts', '**/*.spec.ts', 'tests/**']`. Tests organized as `describe`+`it` blocks naturally exceed any sane function-size threshold; that's not the rule's intent. (Surfaced during phase 2 dogfooding.)
 8. `src/runner.ts`:
    - Now: load config from cwd, build rules, run checks, report.
    - When no config file present: use `defaultConfig`, log nothing.
@@ -68,9 +72,10 @@ Key-by-id keeps merging simple. If the key's record includes `source`, it's a ne
 ## Tests
 - `config/load.test.ts` — fixtures for each of the four formats; verify loaded shape.
 - `config/load.test.ts` — missing config → returns defaults; malformed → throws with field name.
-- `config/merge.test.ts` — override severity, override eslintOptions, disable a rule, add a custom rule.
+- `config/merge.test.ts` — override severity, override eslintOptions, disable a rule, add a custom rule, add `include`/`exclude` patterns.
 - `prompts/loader.test.ts` — override dir hit; fallback to packaged; both-missing error contains both paths.
 - `runner.test.ts` — end-to-end with a fixture project that ships its own `habit-hooks.config.ts` + custom prompt file.
+- `runner.test.ts` — rule-level `exclude` filters test files out of `max-lines-per-function` while still running on `src/`.
 
 ## Acceptance criteria
 - All four config formats load and produce identical merged rule sets given equivalent input.

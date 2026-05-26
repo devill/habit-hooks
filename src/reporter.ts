@@ -18,22 +18,27 @@ function groupByRule(violations: Violation[]): Map<string, Violation[]> {
   return groups;
 }
 
-function renderGroup(rule: Rule, violations: Violation[]): string {
+function renderRuleHeader(rule: Rule): string {
   const guidance = loadGuidance(rule.id);
+  return `❌ ${rule.title}\n${rule.description}\n${guidance}`;
+}
+
+function formatViolation(v: Violation): string {
+  return `- ${v.file}:${v.line} - ${v.message}`;
+}
+
+function renderViolationsList(rule: Rule, violations: Violation[]): string {
   const shown = violations.slice(0, MAX_PER_GROUP);
+  const lines = ['Violations:', ...shown.map(formatViolation)];
   const remaining = violations.length - shown.length;
-  const lines = [
-    `❌ ${rule.title}`,
-    rule.description,
-    guidance,
-    '',
-    'Violations:',
-    ...shown.map((v) => `- ${v.file}:${v.line} - ${v.message}`),
-  ];
   if (remaining > 0) {
     lines.push(`(${remaining} more ${rule.id} violations)`);
   }
   return lines.join('\n');
+}
+
+function renderGroup(rule: Rule, violations: Violation[]): string {
+  return `${renderRuleHeader(rule)}\n\n${renderViolationsList(rule, violations)}`;
 }
 
 function renderHeader(total: number): string {
