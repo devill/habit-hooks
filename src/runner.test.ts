@@ -20,4 +20,16 @@ describe('runner.run', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Habit Hooks: clean');
   });
+
+  it('respects per-rule exclude: test files do not trip max-lines-per-function', async () => {
+    const result = await run(join(fixturesDir, 'configured-project'));
+    expect(result.stdout).not.toContain('Function too long');
+  });
+
+  it('applies project config: disables complexity, uses custom prompt for max-params', async () => {
+    const result = await run(join(fixturesDir, 'configured-project'));
+    expect(result.stdout).toContain('Too many parameters');
+    expect(result.stdout).toContain('CUSTOM PROJECT GUIDANCE');
+    expect(result.stdout).not.toContain('Function complexity is high');
+  });
 });

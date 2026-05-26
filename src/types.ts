@@ -10,6 +10,9 @@ export interface Rule {
   title: string;
   description: string;
   eslintOptions?: unknown;
+  include?: string[];
+  exclude?: string[];
+  guidance?: string;
 }
 
 export interface Violation {

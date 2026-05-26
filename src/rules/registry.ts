@@ -1,38 +1,28 @@
+import { isAbsolute, resolve } from 'node:path';
 import type { Rule } from '../types.js';
+import { defaultConfig, defaultRules } from '../config/defaults.js';
+import { mergeRules } from '../config/merge.js';
+import type { HabitHooksConfig } from '../config/schema.js';
+import { loadGuidance } from '../prompts/loader.js';
 
-const RULES: Rule[] = [
-  {
-    id: 'eslint:max-params',
-    source: 'eslint',
-    sourceRuleId: 'max-params',
-    severity: 'enforced',
-    changedFilesOnly: false,
-    title: 'Too many parameters',
-    description: 'Functions should accept at most 3 parameters.',
-    eslintOptions: [3],
-  },
-  {
-    id: 'eslint:max-lines-per-function',
-    source: 'eslint',
-    sourceRuleId: 'max-lines-per-function',
-    severity: 'enforced',
-    changedFilesOnly: false,
-    title: 'Function too long',
-    description: 'Functions should fit in 15 lines (blank lines and comments excluded).',
-    eslintOptions: [{ max: 15, skipBlankLines: true, skipComments: true }],
-  },
-  {
-    id: 'eslint:complexity',
-    source: 'eslint',
-    sourceRuleId: 'complexity',
-    severity: 'suggested',
-    changedFilesOnly: false,
-    title: 'Function complexity is high',
-    description: 'Cyclomatic complexity should stay at or below 10.',
-    eslintOptions: [10],
-  },
-];
+function resolvePromptsDir(config: HabitHooksConfig, configDir: string): string | undefined {
+  if (config.prompts === undefined) return undefined;
+  return isAbsolute(config.prompts) ? config.prompts : resolve(configDir, config.prompts);
+}
+
+function attachGuidance(rules: Rule[], overrideDir: string | undefined): Rule[] {
+  return rules.map((rule) => ({
+    ...rule,
+    guidance: loadGuidance(rule.id, { overrideDir }),
+  }));
+}
+
+export function buildRules(config: HabitHooksConfig, configDir: string): Rule[] {
+  const merged = mergeRules(defaultRules, defaultConfig.rules, config.rules);
+  const overrideDir = resolvePromptsDir(config, configDir);
+  return attachGuidance(merged, overrideDir);
+}
 
 export function getRules(): Rule[] {
-  return RULES;
+  return buildRules({}, process.cwd());
 }

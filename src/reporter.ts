@@ -1,6 +1,10 @@
 import { loadGuidance } from './prompts/loader.js';
 import type { Rule, Violation } from './types.js';
 
+function guidanceFor(rule: Rule): string {
+  return rule.guidance ?? loadGuidance(rule.id);
+}
+
 const MAX_PER_GROUP = 10;
 
 export interface ReportResult {
@@ -19,8 +23,7 @@ function groupByRule(violations: Violation[]): Map<string, Violation[]> {
 }
 
 function renderRuleHeader(rule: Rule): string {
-  const guidance = loadGuidance(rule.id);
-  return `❌ ${rule.title}\n${rule.description}\n${guidance}`;
+  return `❌ ${rule.title}\n${rule.description}\n${guidanceFor(rule)}`;
 }
 
 function formatViolation(v: Violation): string {
