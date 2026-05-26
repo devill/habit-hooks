@@ -4,10 +4,16 @@ import { dirname, join } from 'node:path';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createGitRepo, type GitRepo } from '../tests/helpers/git.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cliPath = join(repoRoot, 'dist', 'cli.js');
 const fixturesDir = join(repoRoot, 'tests', 'fixtures');
+
+const DIRTY_FN = `export function tooMany(a: number, b: number, c: number, d: number): number {
+  return a + b + c + d;
+}
+`;
 
 describe('cli', () => {
   beforeAll(() => {
@@ -57,6 +63,54 @@ describe('cli', () => {
       expect(result.stdout).toContain('Habit Hooks: 1 violation');
       expect(result.stdout).toContain('Too many parameters');
       expect(result.stdout).toContain('CUSTOM PROJECT GUIDANCE');
+    });
+  });
+
+  describe('scope flags', () => {
+    let repo: GitRepo;
+
+    afterEach(() => {
+      rmSync(repo.cwd, { recursive: true, force: true });
+    });
+
+    it('errors and exits 2 when --last and --branch are combined', () => {
+      repo = createGitRepo();
+      const result = spawnSync('node', [cliPath, '--last', '1', '--branch', 'main'], {
+        cwd: repo.cwd,
+        encoding: 'utf8',
+      });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toMatch(/cannot be used with/);
+    });
+
+    it('--branch with no value uses config.scope.branchBase', () => {
+      repo = createGitRepo();
+      const cfg = {
+        scope: { branchBase: 'main' },
+        rules: { 'eslint:max-lines-per-function': { disabled: true } },
+      };
+      writeFileSync(join(repo.cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
+      repo.commitAll('initial config');
+      repo.run(['checkout', '-b', 'feature']);
+      repo.writeFile('bad.ts', DIRTY_FN);
+      repo.commitAll('feature work');
+
+      const result = spawnSync('node', [cliPath, '--branch'], {
+        cwd: repo.cwd,
+        encoding: 'utf8',
+      });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain('bad.ts');
+    });
+
+    it('exits 2 with a clear error when --last is used outside a git repo', () => {
+      repo = { cwd: mkdtempSync(join(tmpdir(), 'hh-nogit-')) } as GitRepo;
+      const result = spawnSync('node', [cliPath, '--last', '1'], {
+        cwd: repo.cwd,
+        encoding: 'utf8',
+      });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toMatch(/--last requires a git repository/);
     });
   });
 });

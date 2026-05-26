@@ -25,5 +25,5 @@ export interface Violation {
 
 export interface Check {
   id: string;
-  run(files: string[], rules: Rule[]): Promise<Violation[]>;
+  run(files: string[], rules: Rule[], cwd?: string): Promise<Violation[]>;
 }

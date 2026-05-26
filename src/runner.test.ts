@@ -1,10 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { rmSync, writeFileSync } from 'node:fs';
 import { run } from './runner.js';
+import { createGitRepo, type GitRepo } from '../tests/helpers/git.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '..', 'tests', 'fixtures');
+
+const DIRTY_FN = `export function tooMany(a: number, b: number, c: number, d: number): number {
+  return a + b + c + d;
+}
+`;
+const CLEAN_FN = `export function add(a: number, b: number): number {
+  return a + b;
+}
+`;
 
 describe('runner.run', () => {
   it('returns exit 1 and grouped output for a project with violations', async () => {
@@ -31,5 +42,83 @@ describe('runner.run', () => {
     expect(result.stdout).toContain('Too many parameters');
     expect(result.stdout).toContain('CUSTOM PROJECT GUIDANCE');
     expect(result.stdout).not.toContain('Function complexity is high');
+  });
+});
+
+describe('runner.run with scope', () => {
+  let repo: GitRepo;
+
+  afterEach(() => {
+    if (repo) rmSync(repo.cwd, { recursive: true, force: true });
+  });
+
+  function writeConfig(cwd: string, changedFilesOnly: boolean): void {
+    const cfg = {
+      rules: {
+        'eslint:max-params': { changedFilesOnly },
+        'eslint:max-lines-per-function': { disabled: true },
+      },
+    };
+    writeFileSync(join(cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
+  }
+
+  it('changedFilesOnly rule limited to last-commit files with --last 1', async () => {
+    repo = createGitRepo();
+    writeConfig(repo.cwd, true);
+    repo.writeFile('old-bad.ts', DIRTY_FN);
+    repo.commitAll('old');
+    repo.writeFile('new-bad.ts', DIRTY_FN);
+    repo.commitAll('new');
+
+    const result = await run(repo.cwd, { scopeFlags: { last: 1 } });
+
+    expect(result.stdout).toContain('Habit Hooks: 1 violation');
+    expect(result.stdout).toContain('new-bad.ts');
+    expect(result.stdout).not.toContain('old-bad.ts');
+  });
+
+  it('full-scope rule still checks every file under --last 1', async () => {
+    repo = createGitRepo();
+    writeConfig(repo.cwd, false);
+    repo.writeFile('old-bad.ts', DIRTY_FN);
+    repo.commitAll('old');
+    repo.writeFile('clean.ts', CLEAN_FN);
+    repo.commitAll('clean');
+
+    const result = await run(repo.cwd, { scopeFlags: { last: 1 } });
+
+    expect(result.stdout).toContain('old-bad.ts');
+  });
+
+  it('skips rule entirely when scope produces an empty file list', async () => {
+    repo = createGitRepo();
+    writeConfig(repo.cwd, true);
+    repo.writeFile('old-bad.ts', DIRTY_FN);
+    repo.commitAll('old');
+    repo.writeFile('clean.ts', CLEAN_FN);
+    repo.commitAll('only clean changed');
+
+    const result = await run(repo.cwd, { scopeFlags: { last: 1 } });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Habit Hooks: clean');
+  });
+
+  it('--all overrides config.onlyChangedFiles and lints the full set', async () => {
+    repo = createGitRepo();
+    const cfg = {
+      scope: { onlyChangedFiles: true },
+      rules: {
+        'eslint:max-params': { changedFilesOnly: true },
+        'eslint:max-lines-per-function': { disabled: true },
+      },
+    };
+    writeFileSync(join(repo.cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
+    repo.writeFile('committed-bad.ts', DIRTY_FN);
+    repo.commitAll('committed');
+
+    const result = await run(repo.cwd, { scopeFlags: { all: true } });
+
+    expect(result.stdout).toContain('committed-bad.ts');
   });
 });

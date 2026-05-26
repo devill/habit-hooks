@@ -5,6 +5,8 @@ import { eslintCheck } from './checks/eslint-check.js';
 import { loadConfig, loadConfigFromPath } from './config/load.js';
 import { buildRules } from './rules/registry.js';
 import { report } from './reporter.js';
+import { resolveScope, type ResolvedScope, type ScopeFlags } from './git/resolve-scope.js';
+import type { HabitHooksConfig } from './config/schema.js';
 import type { Rule, Violation } from './types.js';
 
 export interface RunResult {
@@ -14,6 +16,18 @@ export interface RunResult {
 
 export interface RunOptions {
   configPath?: string;
+  scopeFlags?: ScopeFlags;
+}
+
+interface RunContext {
+  cwd: string;
+  files: string[];
+  scope: ResolvedScope;
+}
+
+interface FileSetGroup {
+  rules: Rule[];
+  files: string[];
 }
 
 async function discoverFiles(cwd: string): Promise<string[]> {
@@ -42,45 +56,51 @@ function filterFilesForRule(rule: Rule, files: string[], cwd: string): string[] 
   });
 }
 
-async function runEslintRules(
-  rules: Rule[],
+function applyScopeToRule(rule: Rule, files: string[], scope: ResolvedScope): string[] {
+  if (!rule.changedFilesOnly) return files;
+  if (scope.changedFiles === null) return files;
+  return files.filter((file) => scope.changedFiles!.has(file));
+}
+
+function resolveFilesForRule(rule: Rule, ctx: RunContext): string[] {
+  const filtered = filterFilesForRule(rule, ctx.files, ctx.cwd);
+  return applyScopeToRule(rule, filtered, ctx.scope);
+}
+
+function addRuleToGroup(
+  groups: Map<string, FileSetGroup>,
+  rule: Rule,
   files: string[],
-  cwd: string,
-): Promise<Violation[]> {
-  const eslintRules = rules.filter((rule) => rule.source === 'eslint');
-  const violations: Violation[] = [];
-  const groups = groupByFileSet(eslintRules, files, cwd);
-  for (const { rules: groupRules, files: groupFiles } of groups) {
-    const result = await eslintCheck.run(groupFiles, groupRules);
-    violations.push(...result);
-  }
-  return violations;
+): void {
+  const key = files.join('\0');
+  const existing = groups.get(key);
+  if (existing) existing.rules.push(rule);
+  else groups.set(key, { rules: [rule], files });
 }
 
-interface FileSetGroup {
-  rules: Rule[];
-  files: string[];
-}
-
-function groupByFileSet(rules: Rule[], files: string[], cwd: string): FileSetGroup[] {
+function groupByFileSet(rules: Rule[], ctx: RunContext): FileSetGroup[] {
   const groups = new Map<string, FileSetGroup>();
   for (const rule of rules) {
-    const filtered = filterFilesForRule(rule, files, cwd);
-    const key = filtered.join('\0');
-    const existing = groups.get(key);
-    if (existing) {
-      existing.rules.push(rule);
-    } else {
-      groups.set(key, { rules: [rule], files: filtered });
-    }
+    addRuleToGroup(groups, rule, resolveFilesForRule(rule, ctx));
   }
   return [...groups.values()];
+}
+
+async function runEslintRules(rules: Rule[], ctx: RunContext): Promise<Violation[]> {
+  const eslintRules = rules.filter((rule) => rule.source === 'eslint');
+  const groups = groupByFileSet(eslintRules, ctx);
+  const violations: Violation[] = [];
+  for (const group of groups) {
+    if (group.files.length === 0) continue;
+    violations.push(...(await eslintCheck.run(group.files, group.rules, ctx.cwd)));
+  }
+  return violations;
 }
 
 async function resolveConfig(
   cwd: string,
   options: RunOptions,
-): Promise<{ config: Parameters<typeof buildRules>[0]; configDir: string }> {
+): Promise<{ config: HabitHooksConfig; configDir: string }> {
   if (options.configPath !== undefined) {
     const loaded = await loadConfigFromPath(options.configPath);
     return { config: loaded.config, configDir: dirname(options.configPath) };
@@ -94,6 +114,7 @@ export async function run(cwd: string, options: RunOptions = {}): Promise<RunRes
   const { config, configDir } = await resolveConfig(cwd, options);
   const rules = buildRules(config, configDir);
   const files = await discoverFiles(cwd);
-  const violations = await runEslintRules(rules, files, cwd);
+  const scope = resolveScope(options.scopeFlags ?? {}, config.scope, cwd);
+  const violations = await runEslintRules(rules, { cwd, files, scope });
   return report(violations, rules);
 }

@@ -22,8 +22,9 @@ function buildSourceRuleIndex(rules: Rule[]): Map<string, Rule> {
   return index;
 }
 
-function createESLint(rules: Rule[]): ESLint {
+function createESLint(rules: Rule[], cwd: string | undefined): ESLint {
   return new ESLint({
+    cwd,
     overrideConfigFile: true,
     overrideConfig: [
       {
@@ -78,8 +79,8 @@ function collectViolations(
 
 export const eslintCheck: Check = {
   id: 'eslint',
-  async run(files, rules) {
-    const eslint = createESLint(rules);
+  async run(files, rules, cwd) {
+    const eslint = createESLint(rules, cwd);
     const index = buildSourceRuleIndex(rules);
     const results = await lintFiles(eslint, files);
     return collectViolations(results, index);
