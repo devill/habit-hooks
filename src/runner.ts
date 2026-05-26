@@ -6,23 +6,28 @@ import { loadConfig, loadConfigFromPath } from './config/load.js';
 import { buildRules } from './rules/registry.js';
 import { report } from './reporter.js';
 import { resolveScope, type ResolvedScope, type ScopeFlags } from './git/resolve-scope.js';
+import { loadBaseline, type BaselineFile } from './baseline/store.js';
+import { partitionBySnooze } from './baseline/filter.js';
 import type { HabitHooksConfig } from './config/schema.js';
 import type { Rule, Violation } from './types.js';
 
 export interface RunResult {
   stdout: string;
   exitCode: number;
+  violations: Violation[];
 }
 
 export interface RunOptions {
   configPath?: string;
   scopeFlags?: ScopeFlags;
+  applyBaseline?: boolean;
 }
 
 interface RunContext {
   cwd: string;
   files: string[];
   scope: ResolvedScope;
+  baseline: BaselineFile | null;
 }
 
 interface FileSetGroup {
@@ -62,9 +67,16 @@ function applyScopeToRule(rule: Rule, files: string[], scope: ResolvedScope): st
   return files.filter((file) => scope.changedFiles!.has(file));
 }
 
+function applyBaselineToRule(files: string[], ctx: RunContext): string[] {
+  if (ctx.baseline === null) return files;
+  // TODO: surface ctx-level skipped list via a verbose flag when phase 6 adds it.
+  return partitionBySnooze(files, ctx.baseline, ctx.cwd).active;
+}
+
 function resolveFilesForRule(rule: Rule, ctx: RunContext): string[] {
   const filtered = filterFilesForRule(rule, ctx.files, ctx.cwd);
-  return applyScopeToRule(rule, filtered, ctx.scope);
+  const scoped = applyScopeToRule(rule, filtered, ctx.scope);
+  return applyBaselineToRule(scoped, ctx);
 }
 
 function addRuleToGroup(
@@ -110,11 +122,18 @@ async function resolveConfig(
   return { config: loaded.config, configDir };
 }
 
+function resolveBaseline(cwd: string, options: RunOptions): BaselineFile | null {
+  if (options.applyBaseline === false) return null;
+  return loadBaseline(cwd);
+}
+
 export async function run(cwd: string, options: RunOptions = {}): Promise<RunResult> {
   const { config, configDir } = await resolveConfig(cwd, options);
   const rules = buildRules(config, configDir);
   const files = await discoverFiles(cwd);
   const scope = resolveScope(options.scopeFlags ?? {}, config.scope, cwd);
-  const violations = await runEslintRules(rules, { cwd, files, scope });
-  return report(violations, rules);
+  const baseline = resolveBaseline(cwd, options);
+  const violations = await runEslintRules(rules, { cwd, files, scope, baseline });
+  const reported = report(violations, rules);
+  return { ...reported, violations };
 }

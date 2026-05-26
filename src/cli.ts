@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { Command, CommanderError, Option } from 'commander';
 import { run } from './runner.js';
+import { registerBaselineCommands } from './cli/baseline-commands.js';
 import type { ScopeFlags } from './git/resolve-scope.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -98,6 +99,8 @@ program
   .action(async () => {
     await runWithOptions(program.opts<CliOptions>());
   });
+
+registerBaselineCommands(program);
 
 function handleCommanderError(error: CommanderError): void {
   if (error.code === 'commander.helpDisplayed' || error.code === 'commander.help') {

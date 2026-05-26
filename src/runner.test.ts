@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { rmSync, writeFileSync } from 'node:fs';
 import { run } from './runner.js';
+import { lastCommitHash } from './baseline/file-hash.js';
+import { saveBaseline } from './baseline/store.js';
 import { createGitRepo, type GitRepo } from '../tests/helpers/git.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -120,5 +122,60 @@ describe('runner.run with scope', () => {
     const result = await run(repo.cwd, { scopeFlags: { all: true } });
 
     expect(result.stdout).toContain('committed-bad.ts');
+  });
+});
+
+describe('runner.run with baseline', () => {
+  let repo: GitRepo;
+
+  afterEach(() => {
+    if (repo) rmSync(repo.cwd, { recursive: true, force: true });
+  });
+
+  function writeMaxParamsConfig(cwd: string): void {
+    const cfg = {
+      rules: { 'eslint:max-lines-per-function': { disabled: true } },
+    };
+    writeFileSync(join(cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
+  }
+
+  it('skips snoozed clean files entirely', async () => {
+    repo = createGitRepo();
+    writeMaxParamsConfig(repo.cwd);
+    repo.writeFile('bad.ts', DIRTY_FN);
+    repo.commitAll('add bad');
+    const hash = lastCommitHash(repo.cwd, 'bad.ts');
+    saveBaseline(repo.cwd, {
+      version: 1,
+      files: { 'bad.ts': { snoozedAt: hash ?? '' } },
+    });
+
+    const result = await run(repo.cwd);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Habit Hooks: clean');
+    expect(result.stdout).not.toContain('bad.ts');
+  });
+
+  it('resurfaces violations when a snoozed file is edited (working tree dirty)', async () => {
+    repo = createGitRepo();
+    writeMaxParamsConfig(repo.cwd);
+    repo.writeFile('bad.ts', DIRTY_FN);
+    repo.commitAll('add bad');
+    const hash = lastCommitHash(repo.cwd, 'bad.ts');
+    saveBaseline(repo.cwd, {
+      version: 1,
+      files: { 'bad.ts': { snoozedAt: hash ?? '' } },
+    });
+
+    repo.writeFile(
+      'bad.ts',
+      `${DIRTY_FN}\nexport const trivial = 1;\n`,
+    );
+
+    const result = await run(repo.cwd);
+
+    expect(result.stdout).toContain('bad.ts');
+    expect(result.exitCode).toBe(1);
   });
 });
