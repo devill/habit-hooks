@@ -43,7 +43,7 @@ describe('listPrompts', () => {
     const ids = listPrompts().map((p) => p.id);
     expect(ids).toContain('eslint:max-params');
     expect(ids).toContain('jscpd:duplication');
-    expect(ids).toContain('knip:unused-class-members');
+    expect(ids).toContain('knip:classMembers');
     expect(ids).toContain('comment:non-essential');
   });
 });

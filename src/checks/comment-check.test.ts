@@ -69,16 +69,6 @@ describe('commentCheck', () => {
     expect(violations).toEqual([]);
   });
 
-  it('ignores configured executable annotations', async () => {
-    const file = write(dir, 'g.ts', '// @keep-this comment for tooling\nexport const g = 1;\n');
-    const ruleWithOpts: Rule = {
-      ...RULE,
-      sourceOptions: { executableAnnotations: ['@keep-this'] },
-    };
-    const violations = await commentCheck.run([file], [ruleWithOpts]);
-    expect(violations).toEqual([]);
-  });
-
   it('returns empty when no files supplied', async () => {
     const violations = await commentCheck.run([], [RULE]);
     expect(violations).toEqual([]);

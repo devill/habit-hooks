@@ -161,7 +161,7 @@ const jscpdRules: Rule[] = [
 
 const knipRules: Rule[] = [
   {
-    id: 'knip:unused-class-members',
+    id: 'knip:classMembers',
     source: 'knip',
     severity: 'enforced',
     changedFilesOnly: false,

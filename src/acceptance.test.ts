@@ -27,7 +27,7 @@ const EXPECTED: ExpectedCount[] = [
   { ruleId: 'eslint:@typescript-eslint/no-inferrable-types', count: 1 },
   { ruleId: 'comment:non-essential', count: 1 },
   { ruleId: 'jscpd:duplication', count: 2 },
-  { ruleId: 'knip:unused-class-members', count: 1 },
+  { ruleId: 'knip:classMembers', count: 1 },
 ];
 
 function countBy(violations: { ruleId: string }[]): Map<string, number> {

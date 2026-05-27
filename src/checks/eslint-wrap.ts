@@ -3,14 +3,18 @@ import { dirname, join } from 'node:path';
 import { runTool, type ShellResult } from '../wrap/shell.js';
 import { detectTool } from '../detect/tool.js';
 import { lookupPrompt } from '../prompts/registry.js';
+import {
+  emptyOutcome,
+  firstLine,
+  isSpawnFailure,
+  noticesFor,
+  spawnFailureWarning,
+  type BinResolution,
+} from '../wrap/notices.js';
+import { spawnTarget } from '../wrap/resolve.js';
 import type { Check, CheckOutcome, Violation } from '../types.js';
 
 const require = createRequire(import.meta.url);
-
-interface BinResolution {
-  binPath: string;
-  isFallback: boolean;
-}
 
 interface EslintMessage {
   ruleId: string | null;
@@ -35,26 +39,9 @@ export function resolveEslintBin(cwd: string): BinResolution {
   return { binPath: bundledEslintBin(), isFallback: true };
 }
 
-function fallbackNotice(cwd: string): string {
-  return `habit-hooks: using bundled eslint (no eslint installation found in ${cwd})`;
-}
-
 function configWarning(cwd: string, detail: string): string {
   const suffix = detail.length > 0 ? `: ${detail}` : '';
   return `habit-hooks: eslint skipped in ${cwd} (config error)${suffix}`;
-}
-
-function spawnFailureWarning(cwd: string, warnings: string[]): string {
-  const detail = warnings.length > 0 ? warnings.join('; ') : 'spawn failure';
-  return `habit-hooks: eslint skipped in ${cwd} (${detail})`;
-}
-
-function firstLine(text: string): string {
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed.length > 0) return trimmed;
-  }
-  return '';
 }
 
 function tryParseJson(stdout: string): EslintFileResult[] | null {
@@ -65,10 +52,6 @@ function tryParseJson(stdout: string): EslintFileResult[] | null {
   } catch {
     return null;
   }
-}
-
-function isSpawnFailure(result: ShellResult): boolean {
-  return result.exitCode === -1;
 }
 
 function isConfigError(result: ShellResult, parsed: EslintFileResult[] | null): boolean {
@@ -101,26 +84,8 @@ function buildArgs(files: string[]): string[] {
   return ['--format', 'json', ...files];
 }
 
-function emptyOutcome(stderr: string[]): CheckOutcome {
-  return { violations: [], stderr };
-}
-
-function noticesFor(resolution: BinResolution, cwd: string): string[] {
-  return resolution.isFallback ? [fallbackNotice(cwd)] : [];
-}
-
-function requiresNodeRuntime(binPath: string): boolean {
-  return binPath.endsWith('.js');
-}
-
-function spawnTarget(binPath: string, files: string[]): { bin: string; args: string[] } {
-  const args = buildArgs(files);
-  if (requiresNodeRuntime(binPath)) return { bin: process.execPath, args: [binPath, ...args] };
-  return { bin: binPath, args };
-}
-
 async function executeEslint(resolution: BinResolution, cwd: string, files: string[]): Promise<ShellResult> {
-  const target = spawnTarget(resolution.binPath, files);
+  const target = spawnTarget(resolution.binPath, buildArgs(files));
   return runTool({ bin: target.bin, args: target.args, cwd });
 }
 
@@ -129,15 +94,11 @@ function failureNotices(cwd: string, result: ShellResult): string[] {
   return [configWarning(cwd, detail)];
 }
 
-function spawnFailureNotices(cwd: string, result: ShellResult): string[] {
-  return [spawnFailureWarning(cwd, result.warnings)];
-}
-
 async function runEslint(resolution: BinResolution, cwd: string, files: string[]): Promise<CheckOutcome> {
-  const notices = noticesFor(resolution, cwd);
+  const notices = noticesFor('eslint', resolution, cwd);
   const result = await executeEslint(resolution, cwd, files);
   const parsed = tryParseJson(result.stdout);
-  if (isSpawnFailure(result)) return emptyOutcome([...notices, ...spawnFailureNotices(cwd, result)]);
+  if (isSpawnFailure(result)) return emptyOutcome([...notices, spawnFailureWarning('eslint', cwd, result.warnings)]);
   if (isConfigError(result, parsed)) return emptyOutcome([...notices, ...failureNotices(cwd, result)]);
   return { violations: parseEslintJson(result.stdout), stderr: notices };
 }
