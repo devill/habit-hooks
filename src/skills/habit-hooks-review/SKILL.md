@@ -58,14 +58,7 @@ You are reviewing a change set for compatibility with Ivett's coding principles.
 
 **Confirm the gate:**
 
-Run (or read the most recent output of) all four:
-
-```
-npm run typecheck
-npm run lint
-npm test
-npm run build
-```
+Run (or read the most recent output of) all four scripts: `typecheck`, `lint`, `test`, `build`. Detect the package manager from the lockfile in the project root (`pnpm-lock.yaml` → `pnpm`, `yarn.lock` → `yarn`, `bun.lock` or `bun.lockb` → `bun`, otherwise `npm`) and invoke accordingly — pnpm/yarn/bun take the script name directly (`pnpm typecheck`), npm needs `run` (`npm run typecheck`).
 
 All four must exit 0. Report each exit code in the output.
 
