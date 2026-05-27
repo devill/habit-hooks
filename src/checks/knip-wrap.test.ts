@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { chmodSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { knipWrap } from './knip-wrap.js';
+import { buildKnipArgs, consumerKnipMajor, knipWrap, resolveKnipBin } from './knip-wrap.js';
 import type { CheckOutcome, Rule } from '../types.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -307,4 +307,70 @@ describe('knipWrap', () => {
 
     expect(outcome.violations.some((v) => v.ruleId === 'knip:classMembers')).toBe(true);
   }, 30_000);
+
+  function installFakeKnip(version: string): void {
+    const knipDir = join(cwd, 'node_modules', 'knip');
+    mkdirSync(knipDir, { recursive: true });
+    writeFileSync(join(knipDir, 'package.json'), JSON.stringify({ name: 'knip', version, bin: { knip: 'stub.js' } }));
+  }
+
+  function installArgvRecorderKnip(version: string): string {
+    installFakeKnip(version);
+    const argvFile = join(cwd, 'argv.json');
+    const stub = writeFile(
+      cwd,
+      'node_modules/knip/stub.js',
+      `#!/usr/bin/env node\nimport { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(argvFile)}, JSON.stringify(process.argv.slice(2)));\nprocess.stdout.write('{"files":[],"issues":[]}');\nprocess.exit(0);\n`,
+    );
+    chmodSync(stub, 0o755);
+    return argvFile;
+  }
+
+  it('consumerKnipMajor returns the major version when package.json is valid', () => {
+    installFakeKnip('6.4.2');
+    expect(consumerKnipMajor(cwd)).toBe(6);
+  });
+
+  it('consumerKnipMajor returns null when the file is missing', () => {
+    expect(consumerKnipMajor(cwd)).toBeNull();
+  });
+
+  it('consumerKnipMajor returns null when the file is unparseable JSON', () => {
+    const knipDir = join(cwd, 'node_modules', 'knip');
+    mkdirSync(knipDir, { recursive: true });
+    writeFileSync(join(knipDir, 'package.json'), '{not valid json');
+    expect(consumerKnipMajor(cwd)).toBeNull();
+  });
+
+  it('omits --include classMembers when consumer knip is v6+', async () => {
+    const argvFile = installArgvRecorderKnip('6.0.0');
+    writeFile(cwd, 'package.json', JSON.stringify({ name: 'fixture', version: '0.0.0', type: 'module' }));
+    writeFile(cwd, 'knip.json', JSON.stringify({ entry: ['src/a.ts'], project: ['src/**/*.ts'] }));
+    const file = writeFile(cwd, 'src/a.ts', 'export const a = 1;\n');
+
+    await runWrap(cwd, [file]);
+
+    const argv = JSON.parse(readFileSync(argvFile, 'utf8')) as string[];
+    expect(argv).not.toContain('classMembers');
+    expect(argv).toEqual(['--reporter', 'json', '--no-exit-code']);
+  });
+
+  it('includes --include classMembers when consumer knip is v5', async () => {
+    const argvFile = installArgvRecorderKnip('5.88.1');
+    writeFile(cwd, 'package.json', JSON.stringify({ name: 'fixture', version: '0.0.0', type: 'module' }));
+    writeFile(cwd, 'knip.json', JSON.stringify({ entry: ['src/a.ts'], project: ['src/**/*.ts'] }));
+    const file = writeFile(cwd, 'src/a.ts', 'export const a = 1;\n');
+
+    await runWrap(cwd, [file]);
+
+    const argv = JSON.parse(readFileSync(argvFile, 'utf8')) as string[];
+    expect(argv).toEqual(['--reporter', 'json', '--no-exit-code', '--include', 'classMembers']);
+  });
+
+  it('falls back to bundled knip version when no consumer knip is installed', () => {
+    const resolution = resolveKnipBin(cwd);
+    const args = buildKnipArgs(resolution, cwd);
+    expect(resolution.isFallback).toBe(true);
+    expect(args).toContain('classMembers');
+  });
 });
