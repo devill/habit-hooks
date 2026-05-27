@@ -1,6 +1,6 @@
 {
   "name": "habit-hooks",
-  "version": "0.0.0",
+  "version": "0.1.0-beta.0",
   "type": "module",
   "packageManager": "pnpm@11.3.0",
   "engines": {
@@ -18,12 +18,13 @@
     "src/skills"
   ],
   "scripts": {
-    "build": "tsc -p . && chmod +x dist/cli.js",
+    "build": "rm -rf dist && tsc -p . && chmod +x dist/cli.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier -w .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

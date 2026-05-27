@@ -10,9 +10,6 @@ const tier1Rules: Rule[] = [
     changedFilesOnly: true,
     title: 'Oversized function',
     description: 'Functions over 12 lines tend to bundle multiple responsibilities.',
-    sourceOptions: [
-      { max: 12, skipBlankLines: false, skipComments: false, IIFEs: true },
-    ],
   },
   {
     id: 'eslint:max-params',
@@ -22,7 +19,6 @@ const tier1Rules: Rule[] = [
     changedFilesOnly: false,
     title: 'Too many parameters',
     description: 'Functions with many parameters violate single responsibility.',
-    sourceOptions: [{ max: 3 }],
   },
   {
     id: 'eslint:complexity',
@@ -32,7 +28,6 @@ const tier1Rules: Rule[] = [
     changedFilesOnly: true,
     title: 'High cyclomatic complexity',
     description: 'Complex functions are harder to understand, test, and maintain.',
-    sourceOptions: [{ max: 10 }],
   },
   {
     id: 'eslint:max-lines',
@@ -42,7 +37,6 @@ const tier1Rules: Rule[] = [
     changedFilesOnly: true,
     title: 'Oversized file',
     description: 'Files over 200 lines are extremely difficult to maintain.',
-    sourceOptions: [{ max: 200, skipBlankLines: false, skipComments: false }],
   },
 ];
 
@@ -55,7 +49,6 @@ const tier2Rules: Rule[] = [
     changedFilesOnly: false,
     title: 'Unused variable',
     description: 'Unused bindings are dead weight; remove them or rename with a leading underscore if intentional.',
-    sourceOptions: [{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
   },
   {
     id: 'eslint:eqeqeq',
@@ -65,7 +58,6 @@ const tier2Rules: Rule[] = [
     changedFilesOnly: false,
     title: 'Loose equality',
     description: 'Use === / !== to avoid silent coercion bugs.',
-    sourceOptions: ['always'],
   },
   {
     id: 'eslint:no-var',
@@ -102,7 +94,6 @@ const tier2Rules: Rule[] = [
     changedFilesOnly: false,
     title: 'Warning comment',
     description: 'TODO / FIXME / XXX / HACK markers are unfinished work in the codebase.',
-    sourceOptions: [{ terms: ['todo', 'fixme', 'xxx', 'hack'], location: 'anywhere' }],
   },
 ];
 
@@ -155,7 +146,6 @@ const jscpdRules: Rule[] = [
     changedFilesOnly: true,
     title: 'Duplicated code',
     description: 'Repeated blocks usually want a shared abstraction, not a copy-paste.',
-    sourceOptions: { minTokens: 50, minLines: 5 },
   },
 ];
 

@@ -9,7 +9,6 @@ export interface Rule {
   changedFilesOnly: boolean;
   title: string;
   description: string;
-  sourceOptions?: unknown;
   include?: string[];
   exclude?: string[];
   guidance?: string;

@@ -3,7 +3,6 @@ import type { RuleSource, Severity } from '../types.js';
 export interface RuleOverride {
   severity?: Severity;
   changedFilesOnly?: boolean;
-  sourceOptions?: unknown;
   title?: string;
   description?: string;
   disabled?: boolean;

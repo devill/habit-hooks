@@ -28,7 +28,7 @@ describe('cli', () => {
   it('prints version with --version', () => {
     const result = spawnSync('node', [cliPath, '--version'], { encoding: 'utf8' });
     expect(result.status).toBe(0);
-    expect(result.stdout.trim()).toMatch(/^habit-hooks v0\.0\.0$/);
+    expect(result.stdout.trim()).toBe('habit-hooks v0.1.0-beta.0');
   });
 
   describe('malformed config', () => {
