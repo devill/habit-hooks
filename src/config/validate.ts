@@ -1,5 +1,6 @@
 import type { Severity, RuleSource } from '../types.js';
 import type {
+  CommentCheckConfig,
   HabitHooksConfig,
   RuleDefinition,
   RuleOverride,
@@ -98,14 +99,31 @@ function validateScope(value: unknown): ScopeConfig | undefined {
   return value as ScopeConfig;
 }
 
+function validatePositiveInteger(value: unknown, path: string): void {
+  if (value === undefined) return;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    fail(path, 'a positive integer');
+  }
+}
+
+function validateCommentCheck(value: unknown): CommentCheckConfig | undefined {
+  if (value === undefined) return undefined;
+  if (!isPlainObject(value)) fail('commentCheck', 'an object');
+  validatePositiveInteger(value.maxSingleLineChars, 'commentCheck.maxSingleLineChars');
+  validatePositiveInteger(value.maxBlockChars, 'commentCheck.maxBlockChars');
+  return value as CommentCheckConfig;
+}
+
 export function validateConfig(value: unknown): HabitHooksConfig {
   if (!isPlainObject(value)) fail('config', 'an object');
   validateOptionalString(value.prompts, 'prompts');
   const rules = validateRules(value.rules);
   const scope = validateScope(value.scope);
+  const commentCheck = validateCommentCheck(value.commentCheck);
   const config: HabitHooksConfig = {};
   if (typeof value.prompts === 'string') config.prompts = value.prompts;
   if (rules !== undefined) config.rules = rules;
   if (scope !== undefined) config.scope = scope;
+  if (commentCheck !== undefined) config.commentCheck = commentCheck;
   return config;
 }

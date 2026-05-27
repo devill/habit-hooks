@@ -1,9 +1,12 @@
 import { isAbsolute, resolve } from 'node:path';
-import type { Rule } from '../types.js';
+import type { CommentCheckThresholds, Rule } from '../types.js';
+import { DEFAULT_COMMENT_CHECK_THRESHOLDS } from '../checks/comment-check.js';
 import { defaultConfig, defaultRules } from '../config/defaults.js';
 import { mergeRules } from '../config/merge.js';
-import type { HabitHooksConfig } from '../config/schema.js';
+import type { CommentCheckConfig, HabitHooksConfig } from '../config/schema.js';
 import { loadGuidance } from '../prompts/loader.js';
+
+const COMMENT_RULE_ID = 'comment:non-essential';
 
 function resolvePromptsDir(config: HabitHooksConfig, configDir: string): string | undefined {
   if (config.prompts === undefined) return undefined;
@@ -20,10 +23,23 @@ function attachGuidance(rules: Rule[], overrideDir: string | undefined): Rule[] 
   return rules.map((rule) => attachGuidanceToRule(rule, overrideDir));
 }
 
+function resolveCommentThresholds(config: CommentCheckConfig | undefined): CommentCheckThresholds {
+  return {
+    maxSingleLineChars: config?.maxSingleLineChars ?? DEFAULT_COMMENT_CHECK_THRESHOLDS.maxSingleLineChars,
+    maxBlockChars: config?.maxBlockChars ?? DEFAULT_COMMENT_CHECK_THRESHOLDS.maxBlockChars,
+  };
+}
+
+function attachCommentThresholds(rules: Rule[], config: CommentCheckConfig | undefined): Rule[] {
+  const thresholds = resolveCommentThresholds(config);
+  return rules.map((rule) => (rule.id === COMMENT_RULE_ID ? { ...rule, commentCheck: thresholds } : rule));
+}
+
 export function buildRules(config: HabitHooksConfig, configDir: string): Rule[] {
   const merged = mergeRules(defaultRules, defaultConfig.rules, config.rules);
   const overrideDir = resolvePromptsDir(config, configDir);
-  return attachGuidance(merged, overrideDir);
+  const withGuidance = attachGuidance(merged, overrideDir);
+  return attachCommentThresholds(withGuidance, config.commentCheck);
 }
 
 export function getRules(): Rule[] {

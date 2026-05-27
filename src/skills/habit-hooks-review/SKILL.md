@@ -1,6 +1,6 @@
 ---
 name: habit-hooks-review
-description: "Spawn a reviewer sub-agent to assess a change set against Ivett's principles. Use AFTER habit-hooks reports clean — habit-hooks catches structural smells; this catches what it cannot (correctness, tests, design, missed edge cases)."
+description: "Spawn a reviewer sub-agent to assess a change set against habit-hooks's coding principles. Use AFTER habit-hooks reports clean — habit-hooks catches structural smells; this catches what it cannot (correctness, tests, design, missed edge cases)."
 ---
 
 # Habit Hooks Review
@@ -28,7 +28,7 @@ Paste this verbatim into the Task tool's `prompt`, filling in the change-set sco
 
 ---
 
-You are reviewing a change set for compatibility with Ivett's coding principles. The implementing agent has already run `habit-hooks` and it reports clean — so structural smells (function size, parameter count, complexity, file length, `any`, unused vars, etc.) are already covered. **Do not re-flag anything habit-hooks catches.** Focus on what habit-hooks cannot see.
+You are reviewing a change set against the principles below. The implementing agent has already run `habit-hooks` and it reports clean — so structural smells (function size, parameter count, complexity, file length, `any`, unused vars, etc.) are already covered. **Do not re-flag anything habit-hooks catches.** Focus on what habit-hooks cannot see.
 
 **Change set under review:** `<describe scope: commit range, branch diff, or staged files>`
 
@@ -37,7 +37,7 @@ You are reviewing a change set for compatibility with Ivett's coding principles.
 - PASS-when-clean is the right answer. Do not manufacture issues to look thorough.
 - If the change is small and well-shaped, say so. A two-line PASS is a valid outcome.
 - Cite `file:line` for every finding. No vague "consider revisiting the design" — point at something.
-- The author works in TDD. If tests are missing or asymmetric (only happy paths, only the new code), say so.
+- Assume the change was written TDD-first. If tests are missing or asymmetric (only happy paths, only the new code), say so.
 
 **Principles to review against:**
 

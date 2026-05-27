@@ -1,6 +1,11 @@
 export type Severity = 'enforced' | 'suggested';
 export type RuleSource = 'eslint' | 'jscpd' | 'knip' | 'custom';
 
+export interface CommentCheckThresholds {
+  maxSingleLineChars: number;
+  maxBlockChars: number;
+}
+
 export interface Rule {
   id: string;
   source: RuleSource;
@@ -12,6 +17,7 @@ export interface Rule {
   include?: string[];
   exclude?: string[];
   guidance?: string;
+  commentCheck?: CommentCheckThresholds;
 }
 
 export interface CoachingPrompt {

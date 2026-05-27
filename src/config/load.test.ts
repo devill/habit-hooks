@@ -82,4 +82,41 @@ describe('loadConfig', () => {
     writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify({ rules: [] }));
     await expect(loadConfig(workDir)).rejects.toThrow(/rules must be an object/);
   });
+
+  it('throws when commentCheck is not an object', async () => {
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify({ commentCheck: 'nope' }));
+    await expect(loadConfig(workDir)).rejects.toThrow(/commentCheck must be an object/);
+  });
+
+  it('throws when commentCheck.maxSingleLineChars is zero', async () => {
+    const bad = { commentCheck: { maxSingleLineChars: 0 } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /commentCheck\.maxSingleLineChars must be a positive integer/,
+    );
+  });
+
+  it('throws when commentCheck.maxSingleLineChars is negative', async () => {
+    const bad = { commentCheck: { maxSingleLineChars: -3 } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /commentCheck\.maxSingleLineChars must be a positive integer/,
+    );
+  });
+
+  it('throws when commentCheck.maxBlockChars is a float', async () => {
+    const bad = { commentCheck: { maxBlockChars: 1.5 } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /commentCheck\.maxBlockChars must be a positive integer/,
+    );
+  });
+
+  it('throws when commentCheck.maxBlockChars is not a number', async () => {
+    const bad = { commentCheck: { maxBlockChars: 'twenty' } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /commentCheck\.maxBlockChars must be a positive integer/,
+    );
+  });
 });

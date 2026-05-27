@@ -1,8 +1,10 @@
 import { Project, SyntaxKind, type Node, type SourceFile } from 'ts-morph';
-import type { Check, Violation } from '../types.js';
+import type { Check, CommentCheckThresholds, Rule, Violation } from '../types.js';
 
-const MIN_SINGLE = 10;
-const MIN_BLOCK = 15;
+export const DEFAULT_COMMENT_CHECK_THRESHOLDS: CommentCheckThresholds = {
+  maxSingleLineChars: 10,
+  maxBlockChars: 15,
+};
 
 type CommentKind = 'single' | 'block' | 'JSDoc';
 
@@ -10,16 +12,16 @@ function isExcludedComment(text: string): boolean {
   return text.includes('eslint-disable');
 }
 
-function isReportableSingle(text: string): boolean {
+function isReportableSingle(text: string, thresholds: CommentCheckThresholds): boolean {
   if (!text.startsWith('//')) return false;
   if (isExcludedComment(text)) return false;
-  return text.length >= MIN_SINGLE;
+  return text.length >= thresholds.maxSingleLineChars;
 }
 
-function isReportableBlock(text: string): boolean {
+function isReportableBlock(text: string, thresholds: CommentCheckThresholds): boolean {
   if (!text.startsWith('/*')) return false;
   if (isExcludedComment(text)) return false;
-  return text.length >= MIN_BLOCK;
+  return text.length >= thresholds.maxBlockChars;
 }
 
 function truncate(text: string): string {
@@ -40,30 +42,34 @@ function classifyBlock(text: string): CommentKind {
   return text.startsWith('/**') ? 'JSDoc' : 'block';
 }
 
-function collectSingles(source: SourceFile, file: string): Violation[] {
+function collectSingles(source: SourceFile, file: string, thresholds: CommentCheckThresholds): Violation[] {
   return source
     .getDescendantsOfKind(SyntaxKind.SingleLineCommentTrivia)
-    .filter((c) => isReportableSingle(c.getText().trim()))
+    .filter((c) => isReportableSingle(c.getText().trim(), thresholds))
     .map((c) => makeViolation(file, c, 'single'));
 }
 
-function collectBlocks(source: SourceFile, file: string): Violation[] {
+function collectBlocks(source: SourceFile, file: string, thresholds: CommentCheckThresholds): Violation[] {
   return source
     .getDescendantsOfKind(SyntaxKind.MultiLineCommentTrivia)
-    .filter((c) => isReportableBlock(c.getText().trim()))
+    .filter((c) => isReportableBlock(c.getText().trim(), thresholds))
     .map((c) => makeViolation(file, c, classifyBlock(c.getText().trim())));
 }
 
-function collectJsDoc(source: SourceFile, file: string): Violation[] {
+function collectJsDoc(source: SourceFile, file: string, thresholds: CommentCheckThresholds): Violation[] {
   return source
     .getDescendantsOfKind(SyntaxKind.JSDoc)
-    .filter((c) => isReportableBlock(c.getText().trim()))
+    .filter((c) => isReportableBlock(c.getText().trim(), thresholds))
     .map((c) => makeViolation(file, c, 'JSDoc'));
 }
 
-function findCommentsInFile(source: SourceFile): Violation[] {
+function findCommentsInFile(source: SourceFile, thresholds: CommentCheckThresholds): Violation[] {
   const file = source.getFilePath();
-  return [...collectSingles(source, file), ...collectBlocks(source, file), ...collectJsDoc(source, file)];
+  return [
+    ...collectSingles(source, file, thresholds),
+    ...collectBlocks(source, file, thresholds),
+    ...collectJsDoc(source, file, thresholds),
+  ];
 }
 
 function buildProject(files: string[]): Project {
@@ -72,11 +78,17 @@ function buildProject(files: string[]): Project {
   return project;
 }
 
+function resolveThresholds(rules: Rule[]): CommentCheckThresholds {
+  const rule = rules.find((r) => r.id === 'comment:non-essential');
+  return rule?.commentCheck ?? DEFAULT_COMMENT_CHECK_THRESHOLDS;
+}
+
 export const commentCheck: Check = {
   id: 'comment',
-  async run(files) {
+  async run(files, rules) {
     if (files.length === 0) return [];
+    const thresholds = resolveThresholds(rules);
     const project = buildProject(files);
-    return project.getSourceFiles().flatMap((s) => findCommentsInFile(s));
+    return project.getSourceFiles().flatMap((s) => findCommentsInFile(s, thresholds));
   },
 };

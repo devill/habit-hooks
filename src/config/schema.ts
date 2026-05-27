@@ -23,10 +23,16 @@ export interface ScopeConfig {
   mainBranch?: string;
 }
 
+export interface CommentCheckConfig {
+  maxSingleLineChars?: number;
+  maxBlockChars?: number;
+}
+
 export interface HabitHooksConfig {
   prompts?: string;
   rules?: Record<string, RuleOverride | RuleDefinition>;
   scope?: ScopeConfig;
+  commentCheck?: CommentCheckConfig;
 }
 
 export function isRuleDefinition(

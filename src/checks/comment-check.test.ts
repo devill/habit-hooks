@@ -79,4 +79,24 @@ describe('commentCheck', () => {
     const violations = await commentCheck.run([file], [RULE]);
     expect(violations).toEqual([]);
   });
+
+  it('honours a custom single-line threshold from the rule', async () => {
+    const file = write(dir, 'custom.ts', '// short note\nexport const x = 1;\n');
+    const defaultViolations = await commentCheck.run([file], [RULE]);
+    expect(defaultViolations).toHaveLength(1);
+
+    const raisedRule: Rule = { ...RULE, commentCheck: { maxSingleLineChars: 80, maxBlockChars: 15 } };
+    const customViolations = await commentCheck.run([file], [raisedRule]);
+    expect(customViolations).toEqual([]);
+  });
+
+  it('honours a custom block threshold from the rule', async () => {
+    const file = write(dir, 'block.ts', '/* short block */\nexport const x = 1;\n');
+    const defaultViolations = await commentCheck.run([file], [RULE]);
+    expect(defaultViolations).toHaveLength(1);
+
+    const raisedRule: Rule = { ...RULE, commentCheck: { maxSingleLineChars: 10, maxBlockChars: 120 } };
+    const customViolations = await commentCheck.run([file], [raisedRule]);
+    expect(customViolations).toEqual([]);
+  });
 });

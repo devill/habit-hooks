@@ -108,6 +108,12 @@ habit-hooks baseline prune        drop baseline entries whose files no longer ex
 
 `--last`, `--branch`, `--since`, and `--all` are mutually exclusive.
 
+## Opinionated by design
+
+habit-hooks ships with strong opinions baked in: small functions, few parameters, low complexity, no comments standing in for unclear code, no `any`, no dead exports, no copy-pasted blocks. The scaffolded ESLint config from `npx habit-hooks init` reflects those opinions (12-line functions, 3-param max, etc.).
+
+If you disagree with a threshold, change it. Every rule habit-hooks coaches comes from your project's own `eslint.config.*` / `knip.json` / `.jscpd.json` — you have full control. The bundled coaching prompts assume the opinionated defaults; if you loosen a threshold significantly the prompt may read a bit overconfident, but it will still point in the right direction.
+
 ## Configuration
 
 habit-hooks looks for `habit-hooks.config.ts` (or `.js` / `.mjs`) in the project root. The config shape is intentionally small — all rule thresholds, plugin choices, and ignores live in your eslint / knip / jscpd configs, not here.
@@ -126,12 +132,18 @@ const config: HabitHooksConfig = {
     onlyChangedFiles: true,
     branchBase: 'main',
   },
+  commentCheck: {
+    maxSingleLineChars: 10,
+    maxBlockChars: 15,
+  },
 };
 
 export default config;
 ```
 
-What you can set per rule: `disabled`, `include`, `exclude`, `severity`. Everything else (e.g. `max-params: ['error', { max: 5 }]`) belongs in `eslint.config.*`. The `prompts` directory lets you override or add coaching text — drop a `<rule-id>.md` file in there (with `:` and `/` replaced by `-`, `@` dropped) and habit-hooks will use it instead of the bundled prompt. See `src/config/schema.ts` for the full schema.
+What you can set per rule: `disabled`, `include`, `exclude`, `severity`. Everything else (e.g. `max-params: ['error', { max: 5 }]`) belongs in `eslint.config.*`. The `prompts` directory lets you override or add coaching text — drop a `<rule-id>.md` file in there (with `:` and `/` replaced by `-`, `@` dropped) and habit-hooks will use it instead of the bundled prompt. The `commentCheck` block tunes the character thresholds at which the custom `comment:non-essential` rule starts flagging single-line and block comments (defaults shown above). See `src/config/schema.ts` for the full schema.
+
+Note: `disabled: true` only suppresses the habit-hooks coaching prompt. The underlying ESLint / knip / jscpd rule still fires and the violation will appear under "Uncoached rules". To silence a rule entirely, disable it in the tool's own config (e.g. `eslint.config.*`).
 
 ## Baseline
 
