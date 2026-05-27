@@ -10,11 +10,6 @@ function tryRead(path: string): string | null {
   return existsSync(path) ? readFileSync(path, 'utf8').trimEnd() : null;
 }
 
-function missingError(ruleId: string, attempts: string[]): Error {
-  const lines = attempts.map((p) => `  - ${p}`).join('\n');
-  return new Error(`No guidance found for rule "${ruleId}". Tried:\n${lines}`);
-}
-
 export interface LoadGuidanceOptions {
   overrideDir?: string;
   packagedDir?: string;
@@ -28,11 +23,11 @@ function candidatePaths(slug: string, opts: LoadGuidanceOptions): string[] {
   return paths;
 }
 
-export function loadGuidance(ruleId: string, opts: LoadGuidanceOptions = {}): string {
+export function loadGuidance(ruleId: string, opts: LoadGuidanceOptions = {}): string | null {
   const attempts = candidatePaths(slugify(ruleId), opts);
   for (const path of attempts) {
     const text = tryRead(path);
     if (text !== null) return text;
   }
-  throw missingError(ruleId, attempts);
+  return null;
 }

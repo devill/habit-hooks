@@ -10,11 +10,14 @@ function resolvePromptsDir(config: HabitHooksConfig, configDir: string): string 
   return isAbsolute(config.prompts) ? config.prompts : resolve(configDir, config.prompts);
 }
 
+function attachGuidanceToRule(rule: Rule, overrideDir: string | undefined): Rule {
+  const guidance = loadGuidance(rule.id, { overrideDir });
+  if (guidance === null) return rule;
+  return { ...rule, guidance };
+}
+
 function attachGuidance(rules: Rule[], overrideDir: string | undefined): Rule[] {
-  return rules.map((rule) => ({
-    ...rule,
-    guidance: loadGuidance(rule.id, { overrideDir }),
-  }));
+  return rules.map((rule) => attachGuidanceToRule(rule, overrideDir));
 }
 
 export function buildRules(config: HabitHooksConfig, configDir: string): Rule[] {

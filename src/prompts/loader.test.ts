@@ -7,12 +7,13 @@ import { loadGuidance } from './loader.js';
 describe('loadGuidance', () => {
   it('loads stub markdown for a known rule id', () => {
     const text = loadGuidance('eslint:max-params');
-    expect(text.length).toBeGreaterThan(0);
+    expect(text).not.toBeNull();
+    expect(text!.length).toBeGreaterThan(0);
     expect(text).toMatch(/parameters/i);
   });
 
-  it('throws for an unknown rule id', () => {
-    expect(() => loadGuidance('eslint:does-not-exist')).toThrow(/No guidance found/);
+  it('returns null for an unknown rule id', () => {
+    expect(loadGuidance('eslint:does-not-exist')).toBeNull();
   });
 
   describe('with overrideDir', () => {
@@ -35,20 +36,11 @@ describe('loadGuidance', () => {
       expect(text).toMatch(/parameters/i);
     });
 
-    it('error names both attempted paths when none match', () => {
+    it('returns null when neither override nor packaged exists', () => {
       const packagedDir = mkdtempSync(join(tmpdir(), 'hh-pkg-'));
       try {
-        const err = (() => {
-          try {
-            loadGuidance('eslint:missing', { overrideDir: dir, packagedDir });
-          } catch (e) {
-            return e as Error;
-          }
-          return null;
-        })();
-        expect(err).not.toBeNull();
-        expect(err?.message).toContain(dir);
-        expect(err?.message).toContain(packagedDir);
+        const result = loadGuidance('eslint:missing', { overrideDir: dir, packagedDir });
+        expect(result).toBeNull();
       } finally {
         rmSync(packagedDir, { recursive: true, force: true });
       }

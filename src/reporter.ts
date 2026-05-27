@@ -1,11 +1,25 @@
 import { loadGuidance } from './prompts/loader.js';
-import type { Rule, Violation } from './types.js';
+import { lookupPrompt } from './prompts/registry.js';
+import type { CoachingPrompt, Rule, Violation } from './types.js';
 
-function guidanceFor(rule: Rule): string {
-  return rule.guidance ?? loadGuidance(rule.id);
+function ruleGuidance(rule: Rule): string | null {
+  if (rule.guidance !== undefined) return rule.guidance;
+  return loadGuidance(rule.id);
+}
+
+function promptToRule(prompt: CoachingPrompt): Rule {
+  return {
+    id: prompt.id,
+    source: 'custom',
+    severity: 'suggested',
+    changedFilesOnly: false,
+    title: prompt.title,
+    description: prompt.description,
+  };
 }
 
 const MAX_PER_GROUP = 10;
+const UNCOACHED_RULE_ID = 'uncoached';
 
 export interface ReportResult {
   stdout: string;
@@ -23,7 +37,9 @@ function groupByRule(violations: Violation[]): Map<string, Violation[]> {
 }
 
 function renderRuleHeader(rule: Rule): string {
-  return `❌ ${rule.title}\n${rule.description}\n${guidanceFor(rule)}`;
+  const guidance = ruleGuidance(rule);
+  const tail = guidance === null ? '' : `\n${guidance}`;
+  return `❌ ${rule.title}\n${rule.description}${tail}`;
 }
 
 function formatViolation(v: Violation): string {
@@ -52,23 +68,67 @@ function renderHeader(total: number): string {
   return `❌ Habit Hooks: ${total} ${noun}`;
 }
 
-function appendRuleSection(
-  acc: { sections: string[]; exitCode: 0 | 1 },
-  rule: Rule,
-  group: Violation[] | undefined,
-): void {
+interface RenderAcc {
+  sections: string[];
+  exitCode: 0 | 1;
+  consumed: Set<string>;
+}
+
+function appendRuleSection(acc: RenderAcc, rule: Rule, group: Violation[] | undefined): void {
   if (!group || group.length === 0) return;
   acc.sections.push('');
   acc.sections.push(renderGroup(rule, group));
+  acc.consumed.add(rule.id);
   if (rule.severity === 'enforced') acc.exitCode = 1;
+}
+
+function appendKnownRules(acc: RenderAcc, rules: Rule[], groups: Map<string, Violation[]>): void {
+  for (const rule of rules) appendRuleSection(acc, rule, groups.get(rule.id));
+}
+
+function appendPromptOnlyGroups(acc: RenderAcc, groups: Map<string, Violation[]>): void {
+  for (const [ruleId, group] of groups) {
+    if (acc.consumed.has(ruleId)) continue;
+    const prompt = lookupPrompt(ruleId);
+    if (prompt === null) continue;
+    appendRuleSection(acc, promptToRule(prompt), group);
+  }
+}
+
+function collectUncoached(acc: RenderAcc, groups: Map<string, Violation[]>): Violation[] {
+  const out: Violation[] = [];
+  for (const [ruleId, group] of groups) {
+    if (acc.consumed.has(ruleId)) continue;
+    out.push(...group);
+  }
+  return out;
+}
+
+function formatUncoachedLine(v: Violation): string {
+  return `- ${v.ruleId}: ${v.message} (${v.file}:${v.line})`;
+}
+
+function renderUncoachedBody(violations: Violation[]): string {
+  const header = loadGuidance(UNCOACHED_RULE_ID);
+  const intro = header === null ? '' : `${header}\n\n`;
+  return `${intro}${violations.map(formatUncoachedLine).join('\n')}`;
+}
+
+function appendUncoachedSection(acc: RenderAcc, uncoached: Violation[]): void {
+  if (uncoached.length === 0) return;
+  acc.sections.push('');
+  acc.sections.push(`⚠️ Uncoached rules\n\n${renderUncoachedBody(uncoached)}`);
 }
 
 export function report(violations: Violation[], rules: Rule[]): ReportResult {
   const groups = groupByRule(violations);
-  const acc = {
+  const acc: RenderAcc = {
     sections: [renderHeader(violations.length)],
-    exitCode: 0 as 0 | 1,
+    exitCode: 0,
+    consumed: new Set<string>(),
   };
-  for (const rule of rules) appendRuleSection(acc, rule, groups.get(rule.id));
+  appendKnownRules(acc, rules, groups);
+  appendPromptOnlyGroups(acc, groups);
+  appendUncoachedSection(acc, collectUncoached(acc, groups));
   return { stdout: `${acc.sections.join('\n')}\n`, exitCode: acc.exitCode };
 }

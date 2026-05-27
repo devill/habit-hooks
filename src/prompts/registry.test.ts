@@ -29,6 +29,21 @@ describe('lookupPrompt', () => {
     const prompt = lookupPrompt('comment:non-essential');
     expect(prompt?.severity).toBe('suggested');
   });
+
+  it('registers supplemental prompts for common consumer rules not in defaultRules', () => {
+    const supplemental = [
+      'eslint:boundaries/dependencies',
+      'knip:files',
+      'knip:exports',
+      'knip:dependencies',
+    ];
+    for (const id of supplemental) {
+      const prompt = lookupPrompt(id);
+      expect(prompt, `missing supplemental prompt ${id}`).not.toBeNull();
+      expect(existsSync(prompt?.guidancePath ?? '')).toBe(true);
+      expect(prompt?.severity).toBe('suggested');
+    }
+  });
 });
 
 describe('listPrompts', () => {

@@ -43,6 +43,7 @@ describe('report', () => {
     expect(result.stdout).toContain('Habit Hooks catches structural smells');
     expect(result.stdout).toContain('reviewer sub-agent');
     expect(result.stdout).not.toContain('Violations:');
+    expect(result.stdout).not.toContain('Uncoached rules');
   });
 
   it('returns exit 1 and renders group with guidance for enforced violation', () => {
@@ -53,6 +54,7 @@ describe('report', () => {
     expect(result.stdout).toContain('Functions should accept at most 3 parameters.');
     expect(result.stdout).toMatch(/parameters/i);
     expect(result.stdout).toContain('/abs/path/file.ts:4 - issue at line 4');
+    expect(result.stdout).not.toContain('Uncoached rules');
   });
 
   it('returns exit 0 when only suggested rules have violations', () => {
@@ -70,5 +72,73 @@ describe('report', () => {
     expect(result.stdout).toContain('/abs/path/file.ts:10 - issue at line 10');
     expect(result.stdout).not.toContain('issue at line 11');
     expect(result.stdout).toContain('(2 more eslint:max-params violations)');
+  });
+
+  it('renders the Uncoached section for a violation whose rule id has no prompt', () => {
+    const v = makeViolation('eslint:no-console', 3);
+    const result = report([v], []);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Uncoached rules');
+    expect(result.stdout).toContain('eslint:no-console');
+    expect(result.stdout).toContain('/abs/path/file.ts:3');
+    expect(result.stdout).toContain('issue at line 3');
+  });
+
+  it('mixes coached and uncoached violations in one report', () => {
+    const coached = makeViolation('eslint:max-params', 4);
+    const uncoached = makeViolation('eslint:no-console', 9);
+    const result = report([coached, uncoached], rules);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('Too many parameters');
+    expect(result.stdout).toContain('Uncoached rules');
+    expect(result.stdout).toContain('eslint:no-console');
+    const uncoachedIdx = result.stdout.indexOf('Uncoached rules');
+    const coachedIdx = result.stdout.indexOf('Too many parameters');
+    expect(uncoachedIdx).toBeGreaterThan(coachedIdx);
+  });
+
+  it('does not render Uncoached section when all violations are coached', () => {
+    const result = report([makeViolation('eslint:max-params', 1)], rules);
+    expect(result.stdout).not.toContain('Uncoached rules');
+  });
+
+  it('coaches a violation whose rule id has a supplemental prompt but no Rule entry', () => {
+    const v = makeViolation('knip:files', 1);
+    const result = report([v], []);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Unused file');
+    expect(result.stdout).not.toContain('Uncoached rules');
+  });
+
+  it('uncoached violations do not escalate exit code even alongside coached suggested rules', () => {
+    const result = report(
+      [makeViolation('eslint:no-console', 1), makeViolation('eslint:complexity', 2)],
+      rules,
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Uncoached rules');
+  });
+
+  it('promotes supplemental prompts alongside enforced rules and isolates the truly uncoached', () => {
+    const enforced = makeViolation('eslint:max-params', 4);
+    const supplemental = makeViolation('knip:files', 1);
+    const uncoached = makeViolation('eslint:no-console', 9);
+
+    const result = report([enforced, supplemental, uncoached], rules);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('Too many parameters');
+    expect(result.stdout).toContain('Unused file');
+    expect(result.stdout).toContain('A file no consumer imports');
+    expect(result.stdout).toContain('Uncoached rules');
+    expect(result.stdout).toContain('eslint:no-console');
+
+    const uncoachedIdx = result.stdout.indexOf('Uncoached rules');
+    const supplementalIdx = result.stdout.indexOf('Unused file');
+    expect(supplementalIdx).toBeGreaterThan(-1);
+    expect(supplementalIdx).toBeLessThan(uncoachedIdx);
+
+    const uncoachedTail = result.stdout.slice(uncoachedIdx);
+    expect(uncoachedTail).not.toContain('knip:files');
   });
 });

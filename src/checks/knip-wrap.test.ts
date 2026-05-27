@@ -123,7 +123,7 @@ describe('knipWrap', () => {
     expect(filesViolation?.file).toBe(orphan);
   }, 30_000);
 
-  it('silently ignores unknown issue keys (forward-compat with new knip issue types)', async () => {
+  it('surfaces unknown knip issue types as uncoached violations (forward-compat)', async () => {
     const knipDir = join(cwd, 'node_modules', 'knip');
     mkdirSync(knipDir, { recursive: true });
     const payload = {
@@ -143,8 +143,117 @@ describe('knipWrap', () => {
 
     const outcome = await runWrap(cwd, [file]);
 
-    expect(outcome.violations).toEqual([]);
+    expect(outcome.violations).toHaveLength(1);
+    const v = outcome.violations[0]!;
+    expect(v.ruleId).toBe('knip:unlistedPeerDependencies');
+    expect(v.file).toBe(file);
+    expect(v.message).toBe('unrecognised knip issue type');
     expect(outcome.stderr).toEqual([]);
+  });
+
+  it('ignores empty unknown keys to avoid noise', async () => {
+    const knipDir = join(cwd, 'node_modules', 'knip');
+    mkdirSync(knipDir, { recursive: true });
+    const payload = { files: [], issues: [{ file: 'src/a.ts', newEmptyKey: [], anotherEmpty: {} }] };
+    const stub = writeFile(
+      cwd,
+      'node_modules/knip/stub.js',
+      `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(JSON.stringify(payload))});\nprocess.exit(0);\n`,
+    );
+    chmodSync(stub, 0o755);
+    writeFileSync(join(knipDir, 'package.json'), JSON.stringify({ bin: { knip: 'stub.js' } }));
+    writeFile(cwd, 'package.json', JSON.stringify({ name: 'fixture', version: '0.0.0', type: 'module' }));
+    writeFile(cwd, 'knip.json', JSON.stringify({ entry: ['src/a.ts'], project: ['src/**/*.ts'] }));
+    const file = writeFile(cwd, 'src/a.ts', 'export const a = 1;\n');
+
+    const outcome = await runWrap(cwd, [file]);
+
+    expect(outcome.violations).toEqual([]);
+  });
+
+  it('produces a violation when an unknown key holds a populated record (member-map shape)', async () => {
+    const knipDir = join(cwd, 'node_modules', 'knip');
+    mkdirSync(knipDir, { recursive: true });
+    const payload = {
+      files: [],
+      issues: [{ file: 'src/a.ts', someFutureMemberMap: { Foo: [{ name: 'bar', line: 2 }] } }],
+    };
+    const stub = writeFile(
+      cwd,
+      'node_modules/knip/stub.js',
+      `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(JSON.stringify(payload))});\nprocess.exit(0);\n`,
+    );
+    chmodSync(stub, 0o755);
+    writeFileSync(join(knipDir, 'package.json'), JSON.stringify({ bin: { knip: 'stub.js' } }));
+    writeFile(cwd, 'package.json', JSON.stringify({ name: 'fixture', version: '0.0.0', type: 'module' }));
+    writeFile(cwd, 'knip.json', JSON.stringify({ entry: ['src/a.ts'], project: ['src/**/*.ts'] }));
+    const file = writeFile(cwd, 'src/a.ts', 'export const a = 1;\n');
+
+    const outcome = await runWrap(cwd, [file]);
+
+    expect(outcome.violations).toHaveLength(1);
+    const v = outcome.violations[0]!;
+    expect(v.ruleId).toBe('knip:someFutureMemberMap');
+    expect(v.file).toBe(file);
+    expect(v.message).toBe('unrecognised knip issue type');
+  });
+
+  it('emits one violation per unknown key when an issue has multiple', async () => {
+    const knipDir = join(cwd, 'node_modules', 'knip');
+    mkdirSync(knipDir, { recursive: true });
+    const payload = {
+      files: [],
+      issues: [
+        {
+          file: 'src/a.ts',
+          unlistedPeerDependencies: [{ name: 'left-pad', line: 3 }],
+          someFutureType: [{ name: 'other', line: 5 }],
+        },
+      ],
+    };
+    const stub = writeFile(
+      cwd,
+      'node_modules/knip/stub.js',
+      `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(JSON.stringify(payload))});\nprocess.exit(0);\n`,
+    );
+    chmodSync(stub, 0o755);
+    writeFileSync(join(knipDir, 'package.json'), JSON.stringify({ bin: { knip: 'stub.js' } }));
+    writeFile(cwd, 'package.json', JSON.stringify({ name: 'fixture', version: '0.0.0', type: 'module' }));
+    writeFile(cwd, 'knip.json', JSON.stringify({ entry: ['src/a.ts'], project: ['src/**/*.ts'] }));
+    const file = writeFile(cwd, 'src/a.ts', 'export const a = 1;\n');
+
+    const outcome = await runWrap(cwd, [file]);
+
+    expect(outcome.violations).toHaveLength(2);
+    const ruleIds = outcome.violations.map((v) => v.ruleId).sort();
+    expect(ruleIds).toEqual(['knip:someFutureType', 'knip:unlistedPeerDependencies']);
+  });
+
+  it('unknown knip issue types flow through reporter as uncoached', async () => {
+    const knipDir = join(cwd, 'node_modules', 'knip');
+    mkdirSync(knipDir, { recursive: true });
+    const payload = {
+      files: [],
+      issues: [{ file: 'src/a.ts', newKnipIssueType: [{ name: 'thing', line: 5 }] }],
+    };
+    const stub = writeFile(
+      cwd,
+      'node_modules/knip/stub.js',
+      `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(JSON.stringify(payload))});\nprocess.exit(0);\n`,
+    );
+    chmodSync(stub, 0o755);
+    writeFileSync(join(knipDir, 'package.json'), JSON.stringify({ bin: { knip: 'stub.js' } }));
+    writeFile(cwd, 'package.json', JSON.stringify({ name: 'fixture', version: '0.0.0', type: 'module' }));
+    writeFile(cwd, 'knip.json', JSON.stringify({ entry: ['src/a.ts'], project: ['src/**/*.ts'] }));
+    const file = writeFile(cwd, 'src/a.ts', 'export const a = 1;\n');
+
+    const outcome = await runWrap(cwd, [file]);
+    const { report } = await import('../reporter.js');
+    const reported = report(outcome.violations, []);
+
+    expect(reported.stdout).toContain('Uncoached rules');
+    expect(reported.stdout).toContain('knip:newKnipIssueType');
+    expect(reported.exitCode).toBe(0);
   });
 
   it('emits a spawn-failure stderr notice when the knip binary cannot be executed', async () => {

@@ -69,6 +69,15 @@ const LOCATION_KEYS: (keyof KnipIssue)[] = [
 
 const MEMBER_KEYS: (keyof KnipIssue)[] = ['enumMembers', 'classMembers'];
 
+const STRUCTURAL_KEYS = new Set<string>(['file']);
+const SPECIAL_KEYS = new Set<string>(['duplicates']);
+const KNOWN_KEYS = new Set<string>([
+  ...STRUCTURAL_KEYS,
+  ...SPECIAL_KEYS,
+  ...(LOCATION_KEYS as string[]),
+  ...(MEMBER_KEYS as string[]),
+]);
+
 function bundledKnipBin(): string {
   const main = require.resolve('knip');
   return join(dirname(main), '..', 'bin', 'knip.js');
@@ -149,11 +158,33 @@ function warnDuplicatesIfPresent(issue: KnipIssue, cwd: string): void {
   process.stderr.write(`habit-hooks: knip duplicates issue ignored in ${file} (not yet supported)\n`);
 }
 
+function isPopulated(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return true;
+}
+
+function unknownKeyToViolation(cwd: string, issue: KnipIssue, key: string): Violation {
+  const ruleId = `knip:${key}`;
+  const file = absolutize(cwd, issue.file);
+  const message = 'unrecognised knip issue type';
+  return { ruleId, file, line: 1, message };
+}
+
+function unknownKeysForIssue(issue: KnipIssue, cwd: string): Violation[] {
+  const record = issue as unknown as Record<string, unknown>;
+  return Object.keys(record)
+    .filter((k) => !KNOWN_KEYS.has(k) && isPopulated(record[k]))
+    .map((k) => unknownKeyToViolation(cwd, issue, k));
+}
+
 function issueToViolations(issue: KnipIssue, cwd: string): Violation[] {
   warnDuplicatesIfPresent(issue, cwd);
   const fromLocations = LOCATION_KEYS.flatMap((k) => locationsForKey(issue, k, cwd));
   const fromMembers = MEMBER_KEYS.flatMap((k) => membersForKey(issue, k, cwd));
-  return [...fromLocations, ...fromMembers];
+  const fromUnknown = unknownKeysForIssue(issue, cwd);
+  return [...fromLocations, ...fromMembers, ...fromUnknown];
 }
 
 function fileEntryToViolation(cwd: string, file: string): Violation {
