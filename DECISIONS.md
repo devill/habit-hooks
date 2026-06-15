@@ -96,3 +96,17 @@ Each is labelled _agent decision_ per the working agreement.
   ships tested-but-unwired; Phase 4 builds the Nunjucks guide that consumes
   `GuideAction[]` and retires the reporter. (knip flags the output types as unused
   until then — expected.)
+
+## Phase 4 — Nunjucks guide
+
+- **4a: Nunjucks render + guide module (`src/guide/`), tested then integrated in
+  4b.** *(agent decision)* `render.ts` builds a Nunjucks `Environment`
+  (autoescape off — output is agent-facing markdown, not HTML; a `FileSystemLoader`
+  over the override+packaged dirs lets templates `{% include %}` partials).
+  `guide.ts` renders each `GuideAction`'s template against `{ smell, issues }`,
+  lists the uncoached bucket, and computes the exit code (an `enforced` smell with
+  any issue -> exit 1; uncoached never escalates). Per-smell grouping over
+  multiple issues is proven with the `groupby("details.file")` filter (dot-paths
+  work). Command fixes render nothing (out of scope). Reviewer's Phase-4 seam — a
+  `routingFor` that folds in the supplemental seeds (e.g. `parse-error` at
+  `enforced`) — is handled in 4b's runner wiring as `rule ?? lookupPrompt(smell)`.
