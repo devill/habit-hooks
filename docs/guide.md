@@ -7,9 +7,9 @@ hook, CI — decides what a non-zero exit means.
 
 ## Actions
 
-### `prompt` (default)
+### `prompt` — a `.md` template
 
-Render the smell's prompt **template** against all of its issues and emit the
+Render the smell's **template** against all of its issues and emit the
 result; the agent reads it and performs the edit.
 
 The template owns presentation — including how issues are grouped, so each
@@ -40,15 +40,11 @@ Grouping (`{% for %}`, the `groupby` filter), filtering, and counts are the
 template's responsibility, using the fields the sensor put in each issue's
 `details`.
 
-### `command` (override)
+### `command` — any other file
 
-Run a script instead of rendering the template. The script is plain bash or
+Run a script instead of rendering a template. The script is plain bash or
 PowerShell named after the smell (mirroring `<smell>.md`), and receives the
 smell's **entire bag** as JSON on stdin. It runs once per smell.
-
-```jsonc
-{ "smells": { "duplicated-code": { "command": true } } }
-```
 
 - The script may or may not fix the issues — sometimes it just produces
   smarter output than a template can.

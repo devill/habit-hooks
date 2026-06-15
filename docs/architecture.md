@@ -23,8 +23,8 @@ graph LR
   each finding into a canonical, tool-independent **smell key**.
 - **mapper** — *route the smell.* A pure function `smell → GuideAction`.
   Data, not code.
-- **guide** — *coach the fix, signal pass/fail.* Render the prompt template
-  (default) or run a command (override); compute the exit code.
+- **guide** — *coach the fix, signal pass/fail.* Apply the smell's fix — a
+  markdown template, or a script — and compute the exit code.
 
 ## Why three stages
 
