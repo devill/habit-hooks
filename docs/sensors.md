@@ -1,93 +1,153 @@
 # Sensors
 
 A sensor **finds smells**. It runs a tool (or scans the AST directly) and
-appends `Issue`s to the bag, translating its tool's raw rule IDs into
-canonical [smell keys](smell-vocabulary.md).
+appends `Issue`s to the bag, translating its tool's raw output into canonical
+[smell keys](smell-vocabulary.md).
 
 ## Contract
 
 ```ts
 interface Sensor {
   id: string;
-  run(files: string[], cwd: string): Promise<Issue[]>;
+  produces: string[];                 // smell keys this sensor can emit
+  dependsOn?: string[];               // smell keys it consumes (multi sensors)
+  run(ctx: SensorContext): Promise<Issue[]>;
+}
+
+interface SensorContext {
+  files: string[];
+  cwd: string;
+  deps: Issue[];                      // issues for the smells listed in dependsOn
 }
 
 interface Issue {
-  smell: string;          // canonical key (kebab-case) — the routing key
-  file: string;
-  line: number;
-  column?: number;
-  message: string;
-  source: string;         // provenance, e.g. "eslint:max-params"
-  details?: Record<string, unknown>;
+  smell: string;                      // canonical key (kebab-case) — the routing key
+  details: Record<string, unknown>;   // everything relevant to this smell
 }
 ```
 
-Sensors are **additive** and **deterministic**: each appends to the bag, and
-detection is mechanical — no judgement. Push every rule as far left as
-possible; only what truly needs judgement should reach the AI.
+`smell` is the only field with a fixed meaning. `details` is the open bag:
+the sensor fills it with whatever fits the smell. Use the conventional common
+fields (`file`, `line`, `column`, `message`, `source`) where they apply so
+prompts can rely on them; smells that aren't file/line-shaped carry whatever
+structure suits them.
 
-A sensor must never throw on tool spawn/timeout failure. Failures surface as
-a stderr notice and zero issues, never a lost run. (Today's `src/wrap/`
-shell semantics already enforce this.)
+Sensors are **additive** (each appends to the bag) and **deterministic**
+(detection is mechanical, no judgement).
 
-## Built-in sensors
+A sensor must never throw on tool spawn/timeout failure: failures surface as
+a stderr notice and zero issues, never a lost run.
 
-Shipped for TypeScript/JavaScript, enabled by default. Each owns its raw →
-smell translation table (see the migration table in
-[smell-vocabulary.md](smell-vocabulary.md)).
+## Sensor runner
 
-| Sensor | Tool | Smells produced |
-|---|---|---|
-| `eslint` | ESLint | size/complexity/correctness/TS smells, `parse-error` |
-| `knip` | knip | `unused-file`, `unused-export`, `unused-dependency`, `unused-class-member` |
-| `jscpd` | jscpd | `duplicated-code` |
-| `comment` | ts-morph AST scan | `non-essential-comment` |
+The runner registers every configured sensor and runs them in dependency
+order.
 
-## External command sensor
+- A sensor declares the smells it `produces`. A **multi sensor** also
+  declares the smells it `dependsOn` — **smells, not sensors**.
+- The runner maps each depended-on smell to the sensor(s) that produce it,
+  builds a dependency graph, and orders the run so every producer of a multi
+  sensor's input smells has finished before it starts.
+- A multi sensor receives those producers' issues in `ctx.deps` and emits
+  derived smells (e.g. `oversized-file` + `duplicated-code` in one file →
+  `needs-extraction`). This is how combination smells work, keeping the
+  mapper a pure single-smell function.
+- Unsatisfiable dependencies or dependency cycles are a startup error.
 
-The extension point for other languages. No code required — declare it in
-config:
+Leaf sensors leave `dependsOn` unset and ignore `ctx.deps`.
+
+## Language presets
+
+No sensors are enabled by default. `init` asks which language the project
+uses and installs only the sensors for that language. The
+TypeScript/JavaScript preset:
+
+| Sensor    | Tool              | Smells produced                                                            |
+|-----------|-------------------|----------------------------------------------------------------------------|
+| `eslint`  | ESLint            | size/complexity/correctness/TS smells, `parse-error`                       |
+| `knip`    | knip              | `unused-file`, `unused-export`, `unused-dependency`, `unused-class-member` |
+| `jscpd`   | jscpd             | `duplicated-code`                                                          |
+| `comment` | ts-morph AST scan | `non-essential-comment`                                                    |
+
+Each preset sensor owns its raw → smell translation (see
+[smell-vocabulary.md](smell-vocabulary.md)). A preset is a starting point;
+add, remove, or replace sensors in config.
+
+## Integrating other tools
+
+A sensor's output must be bag JSON:
+`{ "issues": [ { "smell", "details" } ] }`. Two ways to get there.
+
+### Wrapper script (default)
+
+Wrap any tool in a script that runs it and prints bag JSON. This is the
+universal path — the script can reshape anything and owns the raw → smell
+translation.
+
+```jsonc
+{ "sensors": { "ruff": { "command": "scripts/ruff-sensor.sh ${files}" } } }
+```
+
+`${files}` expands to the scoped file list; the command prints bag JSON to
+stdout.
+
+### Declarative adapter (convenience)
+
+When a tool already emits JSON, skip the script and declare how to read it.
+The adapter extracts each issue, maps field names into the bag, and
+translates raw keys to smells. Up to two levels of array nesting are
+supported, which covers the common toolchains.
+
+Flat list (Ruff, pylint, most Python/JS tools):
 
 ```jsonc
 {
   "sensors": {
     "ruff": {
-      "type": "command",
       "command": "ruff check --output-format=json ${files}",
-      "map": {
-        "R0913": "too-many-parameters",
-        "C901":  "high-complexity",
-        "F841":  "unused-variable"
-      }
+      "items": "[]",                 // each element is one issue
+      "fields": {                    // bag field ← dot-path in the issue
+        "smell":   "code",
+        "file":    "filename",
+        "line":    "location.row",
+        "column":  "location.column",
+        "message": "message"
+      },
+      "map": { "R0913": "too-many-parameters", "C901": "high-complexity" }
     }
   }
 }
 ```
 
-- `command` — the shell command to run. `${files}` expands to the scoped
-  file list. The command **must print bag JSON to stdout**:
-  `{ "issues": [ { "smell": <raw tool key>, "file", "line", "message", ... } ] }`.
-  (The user wraps the tool's native output into this shape; thin tools that
-  already emit it need no wrapper.)
-- `map` — `rawKey → smellKey`. Applied to each issue's `smell` field after
-  the command runs, rewriting raw tool keys into canonical smell keys. The
-  raw key is preserved in `source`. Omit `map` for identity passthrough
-  (when the wrapper already emits canonical keys).
+Nested (ESLint groups messages under each file):
 
-Keeping the translation in declarative config (rather than in the wrapper
-script) keeps the project's smell vocabulary visible in one place.
-*(Agent decision — flag if you'd rather the wrapper emit canonical keys
-directly.)*
+```jsonc
+{
+  "sensors": {
+    "eslint": {
+      "command": "eslint -f json ${files}",
+      "group": "[]",                 // outer array: one entry per file
+      "items": "messages[]",         // inner array: the issues
+      "fields": {
+        "smell":   "ruleId",
+        "file":    "group.filePath", // "group." reads the outer entry
+        "line":    "line",
+        "column":  "column",
+        "message": "message"
+      },
+      "map": { "max-params": "too-many-parameters", "complexity": "high-complexity" }
+    }
+  }
+}
+```
 
-## Composability (future)
+- `fields` is the field-name map: each bag field is filled from a dot-path in
+  the source (prefix `group.` to read the outer entry).
+- `map` rewrites the raw `smell` value to a canonical key; the raw key is
+  kept in `details.source`. Omit for identity passthrough.
+- Anything the adapter cannot express falls back to a wrapper script.
 
-Llewellyn's catalogue of sensor wrappers — multi, limit, fail-fast,
-change-set, cache, external — are all expressible against this contract as
-sensors that wrap other sensors. We implement them as needed; the contract
-is designed to allow them without change.
+## More sensor wrappers (long term)
 
-The **composite sensor** is the long-term home for combination smells: a
-sensor that subscribes to other sensors' issues and emits a derived smell
-(e.g. `oversized-file` + `duplicated-code` in one file → `needs-extraction`).
-This keeps the mapper a pure single-smell function. Deferred for now.
+Limit, fail-fast, change-set, and cache are sensors that wrap other sensors,
+expressible against this contract without changing it. Added as needed.

@@ -1,8 +1,7 @@
 # Smell vocabulary
 
-The canonical, tool-independent catalogue of code smells Habit Hooks can
-coach. Smell keys are the routing vocabulary: sensors translate raw tool
-output *into* these keys, and the mapper routes *from* them to guidance.
+The canonical, tool-independent catalogue of code smells. Sensors translate
+raw tool output *into* these keys; the mapper routes *from* them to guidance.
 
 ## Naming rules
 
@@ -11,13 +10,16 @@ output *into* these keys, and the mapper routes *from* them to guidance.
 - Name the **smell**, never the tool or the tool's rule ID.
 - A key may be language-specific (`explicit-any`) but must not be
   tool-specific.
-- The default prompt file for a smell is `<smell>.md` (the key, verbatim).
+- The default prompt template for a smell is `<smell>.md` (the key, verbatim).
+
+A smell may define the `details` shape its sensors must provide and its
+prompt template consumes — e.g. `duplicated-code` carries the duplicated
+block and its occurrences, not just a single `file`/`line`.
 
 ## Catalogue
 
-Each smell has a key, a human title, a one-line description, and a default
-severity (`enforced` blocks the commit; `suggested` coaches but exits 0).
-Severity is a default the mapper config can override per project.
+Default severity: `enforced` fails the run (exit 1); `suggested` coaches but
+exits 0. The mapper config can override it per project.
 
 | Smell key | Title | Default severity |
 |---|---|---|
@@ -42,12 +44,12 @@ Severity is a default the mapper config can override per project.
 | `unused-dependency` | Unused dependency | enforced |
 | `parse-error` | Parse / config error | enforced |
 
-## Migration from today's tool-prefixed keys
+## TypeScript/JavaScript preset translation
 
-The current rule IDs map 1:1 onto smell keys. This table is the source of
-truth for Phase 1's rekey and for the built-in sensors' translation tables.
+The raw rule IDs the TS/JS preset sensors emit, and the smell key each maps
+to.
 
-| Old key (tool:rule) | Smell key |
+| Raw key (tool:rule) | Smell key |
 |---|---|
 | `eslint:max-lines-per-function` | `oversized-function` |
 | `eslint:max-params` | `too-many-parameters` |
@@ -72,7 +74,5 @@ truth for Phase 1's rekey and for the built-in sensors' translation tables.
 
 ## Uncoached smells
 
-A smell key that reaches the mapper with no configured guidance falls
-through to an **uncoached** bucket rather than being dropped. The mapping is
-intentionally total, so a new tool or sensor that emits an unknown smell is
-surfaced (and tells us to add a prompt) rather than silently swallowed.
+A smell with no configured guidance falls through to an **uncoached** bucket
+rather than being dropped, so unknown sensor output is always surfaced.
