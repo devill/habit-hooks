@@ -11,7 +11,7 @@ export interface Rule {
   source: RuleSource;
   sourceRuleId?: string;
   severity: Severity;
-  changedFilesOnly: boolean;
+  changedFilesOnly?: boolean;
   title: string;
   description: string;
   include?: string[];

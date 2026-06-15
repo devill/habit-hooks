@@ -37,8 +37,8 @@ describe('lookupPrompt', () => {
     expect(prompt?.severity).toBe('enforced');
   });
 
-  it('does not register demoted smells (they fall through to uncoached)', () => {
-    const demoted = ['unused-file', 'unused-export', 'unused-dependency', 'some-future-smell'];
+  it('does not register uncatalogued smells (they fall through to uncoached)', () => {
+    const demoted = ['some-future-smell', 'no-console', 'enumMembers'];
     for (const id of demoted) {
       expect(lookupPrompt(id), `unexpected supplemental prompt ${id}`).toBeNull();
     }

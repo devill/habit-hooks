@@ -10,10 +10,11 @@ import { loadBaseline, type BaselineFile } from './baseline/store.js';
 import { partitionBySnooze } from './baseline/filter.js';
 import { SensorRunner } from './sensors/runner.js';
 import { buildPresetSensors, issueToViolation, violationToIssue } from './sensors/preset.js';
+import { buildPythonPresetSensors } from './sensors/python-preset.js';
 import { mapIssues, type MapperDirs, type RoutingLookup } from './mapper/mapper.js';
 import { guide } from './guide/guide.js';
 import type { Sensor } from './sensors/types.js';
-import type { HabitHooksConfig } from './config/schema.js';
+import type { HabitHooksConfig, Language } from './config/schema.js';
 import type { Rule, Violation } from './types.js';
 
 const COMMENT_SMELL = 'non-essential-comment';
@@ -36,11 +37,17 @@ interface RunContext {
   files: string[];
   scope: ResolvedScope;
   baseline: BaselineFile | null;
+  language: Language;
   promptsDir?: string;
 }
 
-async function discoverFiles(cwd: string): Promise<string[]> {
-  return fg(['**/*.{ts,tsx,js,mjs,cjs}'], {
+const FILE_GLOBS: Record<Language, string[]> = {
+  typescript: ['**/*.{ts,tsx,js,mjs,cjs}'],
+  python: ['**/*.py'],
+};
+
+async function discoverFiles(cwd: string, language: Language): Promise<string[]> {
+  return fg(FILE_GLOBS[language], {
     cwd,
     absolute: true,
     ignore: ['**/node_modules/**', '**/dist/**', '**/coverage/**'],
@@ -109,11 +116,12 @@ function resolvePromptsDir(config: HabitHooksConfig, configDir: string): string 
 async function buildContext(cwd: string, options: RunOptions): Promise<{ ctx: RunContext; rules: Rule[] }> {
   const { config, configDir } = await resolveConfig(cwd, options);
   const rules = buildRules(config, configDir);
-  const files = await discoverFiles(cwd);
+  const language: Language = config.language ?? 'typescript';
+  const files = await discoverFiles(cwd, language);
   const scope = resolveScope(options.scopeFlags ?? {}, config.scope, cwd);
   const baseline = resolveBaseline(cwd, options);
   const promptsDir = resolvePromptsDir(config, configDir);
-  return { ctx: { cwd, files, scope, baseline, promptsDir }, rules };
+  return { ctx: { cwd, files, scope, baseline, language, promptsDir }, rules };
 }
 
 // A sensor runs only when at least one smell it produces has an active rule
@@ -131,10 +139,15 @@ function sensorActive(sensor: Sensor, rulesById: Map<string, Rule>, ctx: RunCont
 // Active sensors detect over the full discovered file set and their issues are
 // merged; rule-scoped file filtering is applied afterwards so the sensor stage
 // stays a pure smell detector (docs/sensors.md).
+function presetSensors(ctx: RunContext, rulesById: Map<string, Rule>, notices: string[]): Sensor[] {
+  if (ctx.language === 'python') return buildPythonPresetSensors({ notices });
+  return buildPresetSensors({ notices, commentRule: rulesById.get(COMMENT_SMELL) });
+}
+
 async function detect(ctx: RunContext, rules: Rule[]): Promise<{ violations: Violation[]; notices: string[] }> {
   const notices: string[] = [];
   const rulesById = new Map(rules.map((r) => [r.id, r] as const));
-  const all = buildPresetSensors({ notices, commentRule: rulesById.get(COMMENT_SMELL) });
+  const all = presetSensors(ctx, rulesById, notices);
   const active = all.filter((sensor) => sensorActive(sensor, rulesById, ctx));
   const issues = await new SensorRunner(active).run({ files: ctx.files, cwd: ctx.cwd });
   return { violations: issues.map(issueToViolation), notices };
@@ -146,14 +159,16 @@ function allowedFilesBySmell(rules: Rule[], ctx: RunContext): Map<string, Set<st
   return map;
 }
 
-// A violation whose smell has a configured rule is kept only when its file is in
-// that rule's resolved set; an uncoached smell (no rule) is never file-filtered,
-// matching the legacy per-source dispatch.
+// Keep a violation when its smell has no rule (uncoached), or its file is not a
+// discovered source file (a project-level artifact like pyproject.toml reported
+// by a whole-project sensor), or its file is in the rule's resolved set.
 function filterViolations(violations: Violation[], rules: Rule[], ctx: RunContext): Violation[] {
   const allowed = allowedFilesBySmell(rules, ctx);
+  const sourceFiles = new Set(ctx.files);
   return violations.filter((v) => {
     const set = allowed.get(v.ruleId);
-    return set === undefined ? true : set.has(v.file);
+    if (set === undefined || !sourceFiles.has(v.file)) return true;
+    return set.has(v.file);
   });
 }
 

@@ -1,5 +1,6 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Language } from '../../config/schema.js';
 
 const CONFIG_FILENAMES = [
   'habit-hooks.config.ts',
@@ -10,13 +11,23 @@ const CONFIG_FILENAMES = [
 
 const NEW_CONFIG_FILENAME = 'habit-hooks.config.js';
 
-const CONFIG_TEMPLATE = `export default {
+// init selects the language so only that language's sensors run. A Python
+// project is recognised by its manifest; everything else defaults to TypeScript.
+export function detectLanguage(cwd: string): Language {
+  if (existsSync(join(cwd, 'pyproject.toml')) || existsSync(join(cwd, 'setup.py'))) return 'python';
+  return 'typescript';
+}
+
+function configTemplate(language: Language): string {
+  return `export default {
+  language: '${language}',
   scope: {
     onlyChangedFiles: true,
     branchBase: 'main',
   },
 };
 `;
+}
 
 export interface ScaffoldResult {
   path: string;
@@ -52,6 +63,6 @@ export function scaffoldConfig(cwd: string): ScaffoldResult {
     cwd,
     candidates: CONFIG_FILENAMES,
     defaultName: NEW_CONFIG_FILENAME,
-    template: CONFIG_TEMPLATE,
+    template: configTemplate(detectLanguage(cwd)),
   });
 }

@@ -166,3 +166,38 @@ Each is labelled _agent decision_ per the working agreement.
 
 - The live-ruff preset test skips when ruff is not on PATH (CI without the Python
   toolchain) so the suite stays green everywhere; it runs in the provisioned env.
+
+## Phase 6 — init language selection + e2e
+
+- **Language selection wired into `run()`.** *(agent decision)* `config.language`
+  (`typescript` | `python`, default typescript) drives both file discovery
+  (`**/*.{ts,tsx,js,mjs,cjs}` vs `**/*.py`) and the active preset
+  (`buildPresetSensors` vs `buildPythonPresetSensors`). The activeness gate keeps
+  only that language's sensors running. `init` detects the language from a Python
+  manifest (`pyproject.toml`/`setup.py`, else typescript) and writes it to the
+  scaffolded config.
+
+- **Catalogue gap fixed: added `unused-file`/`unused-export`/`unused-dependency`
+  (per docs/smell-vocabulary.md) and the new `unused-import`.** *(agent decision)*
+  These were vocabulary smells with no `defaultRules` entry, so the activeness
+  gate marked deptry (whose only smell is `unused-dependency`) inactive and it
+  never ran. Cataloguing them coaches the smells and lets their sensors activate.
+  The catalogue moved to `src/config/catalogue.ts` (line budget); `changedFilesOnly`
+  is now optional on `Rule` (defaults false) to keep the catalogue compact.
+
+- **Whole-project artifacts bypass source-file filtering.** *(agent decision)*
+  `filterViolations` now keeps a violation whose file is not a discovered source
+  file — a project-level artifact like `pyproject.toml`/`package.json` reported by
+  deptry/knip can't be source-file-scoped (it was being dropped, hiding
+  unused-dependency).
+
+- **deptry uses the temp-report pattern, not the stdout adapter.** *(agent
+  decision)* `deptry --json-output /dev/stdout` writes nothing when stdout is a
+  pipe (only the human report reaches stderr), so the deptry sensor writes JSON to
+  a temp file and feeds it through the adapter's `extractIssues`.
+
+- **Python e2e fixture** (`tests/fixtures/python-project`) exercises all six
+  Python smells; `src/python-acceptance.test.ts` asserts the expected counts and
+  exit 1 (skips without ruff+deptry). The fixture's `pyproject.toml` configures
+  ruff `mccabe.max-complexity` (like the TS fixture configures ESLint) so `C901`
+  fires — preset thresholds come from the consumer's tool config.

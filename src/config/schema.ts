@@ -29,8 +29,12 @@ export interface CommentCheckConfig {
   maxBlockChars?: number;
 }
 
+export type Language = 'typescript' | 'python';
+
 export interface HabitHooksConfig {
   prompts?: string;
+  // `init` selects the language; only that language's sensors run. Default: typescript.
+  language?: Language;
   // `smells` is the canonical smell-keyed mapping (docs/mapper.md); `rules` is a
   // transitional alias accepted for back-compat. Both merge, smells last.
   smells?: Record<string, RuleOverride | RuleDefinition>;

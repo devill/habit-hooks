@@ -2,6 +2,7 @@ import type { Severity, RuleSource } from '../types.js';
 import type {
   CommentCheckConfig,
   HabitHooksConfig,
+  Language,
   RuleDefinition,
   RuleOverride,
   ScopeConfig,
@@ -9,6 +10,7 @@ import type {
 
 const SEVERITIES: readonly Severity[] = ['enforced', 'suggested'];
 const SOURCES: readonly RuleSource[] = ['eslint', 'jscpd', 'custom'];
+const LANGUAGES = ['typescript', 'python'] as const;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -115,8 +117,17 @@ function validateCommentCheck(value: unknown): CommentCheckConfig | undefined {
   return value as CommentCheckConfig;
 }
 
+function validateLanguage(value: unknown): Language | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !LANGUAGES.includes(value as Language)) {
+    fail('language', `one of 'typescript', 'python'`);
+  }
+  return value as Language;
+}
+
 interface ValidatedParts {
   prompts?: string;
+  language: Language | undefined;
   smells: HabitHooksConfig['smells'];
   rules: HabitHooksConfig['rules'];
   scope: ScopeConfig | undefined;
@@ -126,6 +137,7 @@ interface ValidatedParts {
 function assembleConfig(parts: ValidatedParts): HabitHooksConfig {
   const config: HabitHooksConfig = {};
   if (parts.prompts !== undefined) config.prompts = parts.prompts;
+  if (parts.language !== undefined) config.language = parts.language;
   if (parts.smells !== undefined) config.smells = parts.smells;
   if (parts.rules !== undefined) config.rules = parts.rules;
   if (parts.scope !== undefined) config.scope = parts.scope;
@@ -138,6 +150,7 @@ export function validateConfig(value: unknown): HabitHooksConfig {
   validateOptionalString(value.prompts, 'prompts');
   return assembleConfig({
     prompts: typeof value.prompts === 'string' ? value.prompts : undefined,
+    language: validateLanguage(value.language),
     smells: validateEntryMap(value.smells, 'smells'),
     rules: validateEntryMap(value.rules, 'rules'),
     scope: validateScope(value.scope),

@@ -1,6 +1,7 @@
 import { jscpdWrap } from '../checks/jscpd-wrap.js';
 import { declarativeSensor, type DeclarativeSensorSpec } from './adapter.js';
 import { checkLeafSensor } from './preset.js';
+import { deptrySensor } from './deptry-sensor.js';
 import type { Sensor } from './types.js';
 
 // The Python preset: ruff (declarative adapter) + jscpd on .py + deptry
@@ -22,16 +23,6 @@ const RUFF_SPEC: DeclarativeSensorSpec = {
   },
 };
 
-// deptry analyses the whole project and emits a flat JSON array to /dev/stdout.
-const DEPTRY_SPEC: DeclarativeSensorSpec = {
-  id: 'deptry',
-  produces: ['unused-dependency'],
-  command: 'deptry . --json-output /dev/stdout',
-  items: '[]',
-  fields: { smell: 'error.code', file: 'location.file', line: 'location.line', message: 'error.message' },
-  map: { DEP002: 'unused-dependency' },
-};
-
 export interface PythonPresetInput {
   notices: string[];
 }
@@ -41,6 +32,6 @@ export function buildPythonPresetSensors(input: PythonPresetInput): Sensor[] {
   return [
     declarativeSensor(RUFF_SPEC, notices),
     checkLeafSensor({ check: jscpdWrap, produces: ['duplicated-code'], notices }),
-    declarativeSensor(DEPTRY_SPEC, notices),
+    deptrySensor(notices),
   ];
 }
