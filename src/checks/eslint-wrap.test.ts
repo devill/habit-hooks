@@ -46,7 +46,7 @@ describe('eslintWrap', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('returns eslint-prefixed violations when consumer eslint reports problems', async () => {
+  it('returns smell-keyed violations when consumer eslint reports problems', async () => {
     linkNodeModules(cwd);
     writeFile(cwd, 'eslint.config.mjs', 'export default [{ rules: { "no-var": "error" } }];\n');
     const file = writeFile(cwd, 'a.js', 'var x = 1;\n');
@@ -54,7 +54,8 @@ describe('eslintWrap', () => {
     const outcome = await runWrap(cwd, [file]);
 
     expect(outcome.violations).toHaveLength(1);
-    expect(outcome.violations[0]?.ruleId).toBe('eslint:no-var');
+    expect(outcome.violations[0]?.ruleId).toBe('var-declaration');
+    expect(outcome.violations[0]?.source).toBe('eslint:no-var');
     expect(outcome.stderr).toEqual([]);
   }, 30_000);
 
@@ -85,7 +86,7 @@ describe('eslintWrap', () => {
     expect(outcome).toEqual({ violations: [], stderr: [] });
   });
 
-  it('returns a violation with raw ruleId when no prompt is registered for it', async () => {
+  it('passes an unmapped eslint rule through as its bare key with provenance', async () => {
     linkNodeModules(cwd);
     writeFile(cwd, 'eslint.config.mjs', 'export default [{ rules: { "no-console": "error" } }];\n');
     const file = writeFile(cwd, 'a.js', 'console.log(1);\n');
@@ -93,7 +94,8 @@ describe('eslintWrap', () => {
     const outcome = await runWrap(cwd, [file]);
 
     expect(outcome.violations).toHaveLength(1);
-    expect(outcome.violations[0]?.ruleId).toBe('eslint:no-console');
+    expect(outcome.violations[0]?.ruleId).toBe('no-console');
+    expect(outcome.violations[0]?.source).toBe('eslint:no-console');
     expect(outcome.violations[0]?.message).toMatch(/^no-console: /);
   }, 30_000);
 
@@ -113,7 +115,7 @@ describe('eslintWrap', () => {
     expect(outcome.stderr?.some((s) => s.includes('config error'))).toBe(false);
   });
 
-  it('surfaces fatal parser errors as eslint:fatal violations', async () => {
+  it('surfaces fatal parser errors as parse-error violations', async () => {
     linkNodeModules(cwd);
     writeFile(cwd, 'eslint.config.mjs', 'export default [{ rules: { "no-var": "error" } }];\n');
     const file = writeFile(cwd, 'broken.js', 'function foo(\n');
@@ -121,7 +123,8 @@ describe('eslintWrap', () => {
     const outcome = await runWrap(cwd, [file]);
 
     expect(outcome.violations).toHaveLength(1);
-    expect(outcome.violations[0]?.ruleId).toBe('eslint:fatal');
+    expect(outcome.violations[0]?.ruleId).toBe('parse-error');
+    expect(outcome.violations[0]?.source).toBe('eslint:fatal');
     expect(outcome.violations[0]?.file).toBe(file);
     expect(outcome.violations[0]?.line).toBe(2);
     expect(outcome.violations[0]?.message).toMatch(/Fatal parse\/config error:/);
@@ -138,7 +141,7 @@ describe('eslintWrap', () => {
 
     expect(outcome.violations).toHaveLength(2);
     const ruleIds = outcome.violations.map((v) => v.ruleId).sort();
-    expect(ruleIds).toEqual(['eslint:fatal', 'eslint:no-var']);
+    expect(ruleIds).toEqual(['parse-error', 'var-declaration']);
   }, 30_000);
 
   it('parses valid eslint JSON output and decorates each violation', async () => {
@@ -153,7 +156,7 @@ describe('eslintWrap', () => {
     const outcome = await runWrap(cwd, [file]);
 
     expect(outcome.violations).toHaveLength(2);
-    expect(outcome.violations.every((v) => v.ruleId.startsWith('eslint:'))).toBe(true);
+    expect(outcome.violations.every((v) => v.source?.startsWith('eslint:'))).toBe(true);
     expect(outcome.violations.every((v) => v.file === file)).toBe(true);
   }, 30_000);
 });

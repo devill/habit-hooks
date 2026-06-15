@@ -31,7 +31,8 @@ function truncate(text: string): string {
 
 function makeViolation(file: string, comment: Node, kind: CommentKind): Violation {
   return {
-    ruleId: 'comment:non-essential',
+    ruleId: 'non-essential-comment',
+    source: 'comment:non-essential',
     file,
     line: comment.getStartLineNumber(),
     message: `${kind}-line comment: "${truncate(comment.getText())}"`,
@@ -79,7 +80,7 @@ function buildProject(files: string[]): Project {
 }
 
 function resolveThresholds(rules: Rule[]): CommentCheckThresholds {
-  const rule = rules.find((r) => r.id === 'comment:non-essential');
+  const rule = rules.find((r) => r.id === 'non-essential-comment');
   return rule?.commentCheck ?? DEFAULT_COMMENT_CHECK_THRESHOLDS;
 }
 

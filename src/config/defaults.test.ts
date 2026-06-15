@@ -6,20 +6,20 @@ describe('defaults', () => {
   it('includes every locked v1 rule id', () => {
     const ids = new Set(defaultRules.map((r) => r.id));
     const expected = [
-      'eslint:max-lines-per-function',
-      'eslint:max-params',
-      'eslint:complexity',
-      'eslint:max-lines',
-      'eslint:no-unused-vars',
-      'eslint:eqeqeq',
-      'eslint:no-var',
-      'eslint:prefer-const',
-      'eslint:no-duplicate-imports',
-      'eslint:no-warning-comments',
-      'eslint:@typescript-eslint/no-explicit-any',
-      'eslint:@typescript-eslint/no-non-null-assertion',
-      'eslint:@typescript-eslint/no-inferrable-types',
-      'comment:non-essential',
+      'oversized-function',
+      'too-many-parameters',
+      'high-complexity',
+      'oversized-file',
+      'unused-variable',
+      'loose-equality',
+      'var-declaration',
+      'non-const-binding',
+      'duplicate-import',
+      'warning-comment',
+      'explicit-any',
+      'non-null-assertion',
+      'redundant-type-annotation',
+      'non-essential-comment',
     ];
     for (const id of expected) {
       expect(ids.has(id), `missing ${id}`).toBe(true);
@@ -33,12 +33,12 @@ describe('defaults', () => {
 
   it('applies the test-file exclude from defaultConfig', () => {
     const merged = mergeRules(defaultRules, defaultConfig.rules);
-    const fnRule = merged.find((r) => r.id === 'eslint:max-lines-per-function');
+    const fnRule = merged.find((r) => r.id === 'oversized-function');
     expect(fnRule?.exclude).toEqual(['**/*.test.ts', '**/*.spec.ts', 'tests/**']);
   });
 
   it('marks the comment rule as custom source', () => {
-    const rule = defaultRules.find((r) => r.id === 'comment:non-essential');
+    const rule = defaultRules.find((r) => r.id === 'non-essential-comment');
     expect(rule?.source).toBe('custom');
   });
 });

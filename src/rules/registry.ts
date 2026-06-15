@@ -6,7 +6,7 @@ import { mergeRules } from '../config/merge.js';
 import type { CommentCheckConfig, HabitHooksConfig } from '../config/schema.js';
 import { loadGuidance } from '../prompts/loader.js';
 
-const COMMENT_RULE_ID = 'comment:non-essential';
+const COMMENT_RULE_ID = 'non-essential-comment';
 
 function resolvePromptsDir(config: HabitHooksConfig, configDir: string): string | undefined {
   if (config.prompts === undefined) return undefined;

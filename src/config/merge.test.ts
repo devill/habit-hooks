@@ -4,7 +4,7 @@ import { mergeRules } from './merge.js';
 
 const base: Rule[] = [
   {
-    id: 'eslint:max-params',
+    id: 'too-many-parameters',
     source: 'eslint',
     sourceRuleId: 'max-params',
     severity: 'enforced',
@@ -13,7 +13,7 @@ const base: Rule[] = [
     description: 'desc',
   },
   {
-    id: 'eslint:complexity',
+    id: 'high-complexity',
     source: 'eslint',
     sourceRuleId: 'complexity',
     severity: 'suggested',
@@ -31,17 +31,17 @@ describe('mergeRules', () => {
 
   it('overrides severity', () => {
     const result = mergeRules(base, {
-      'eslint:max-params': { severity: 'suggested' },
+      'too-many-parameters': { severity: 'suggested' },
     });
-    const target = result.find((r) => r.id === 'eslint:max-params');
+    const target = result.find((r) => r.id === 'too-many-parameters');
     expect(target?.severity).toBe('suggested');
   });
 
   it('removes a disabled rule', () => {
     const result = mergeRules(base, {
-      'eslint:complexity': { disabled: true },
+      'high-complexity': { disabled: true },
     });
-    expect(result.map((r) => r.id)).not.toContain('eslint:complexity');
+    expect(result.map((r) => r.id)).not.toContain('high-complexity');
   });
 
   it('appends a custom rule definition', () => {
@@ -61,9 +61,9 @@ describe('mergeRules', () => {
 
   it('applies include and exclude patterns', () => {
     const result = mergeRules(base, {
-      'eslint:max-params': { include: ['src/**'], exclude: ['**/*.test.ts'] },
+      'too-many-parameters': { include: ['src/**'], exclude: ['**/*.test.ts'] },
     });
-    const target = result.find((r) => r.id === 'eslint:max-params');
+    const target = result.find((r) => r.id === 'too-many-parameters');
     expect(target?.include).toEqual(['src/**']);
     expect(target?.exclude).toEqual(['**/*.test.ts']);
   });
@@ -71,10 +71,10 @@ describe('mergeRules', () => {
   it('merges multiple override sources (later wins per field)', () => {
     const result = mergeRules(
       base,
-      { 'eslint:max-params': { exclude: ['tests/**'] } },
-      { 'eslint:max-params': { severity: 'suggested' } },
+      { 'too-many-parameters': { exclude: ['tests/**'] } },
+      { 'too-many-parameters': { severity: 'suggested' } },
     );
-    const target = result.find((r) => r.id === 'eslint:max-params');
+    const target = result.find((r) => r.id === 'too-many-parameters');
     expect(target?.exclude).toEqual(['tests/**']);
     expect(target?.severity).toBe('suggested');
   });

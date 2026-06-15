@@ -57,8 +57,8 @@ describe('runner.run with scope', () => {
   function writeConfig(cwd: string, changedFilesOnly: boolean): void {
     const cfg = {
       rules: {
-        'eslint:max-params': { changedFilesOnly },
-        'eslint:max-lines-per-function': { disabled: true },
+        'too-many-parameters': { changedFilesOnly },
+        'oversized-function': { disabled: true },
       },
     };
     writeFileSync(join(cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
@@ -111,8 +111,8 @@ describe('runner.run with scope', () => {
     const cfg = {
       scope: { onlyChangedFiles: true },
       rules: {
-        'eslint:max-params': { changedFilesOnly: true },
-        'eslint:max-lines-per-function': { disabled: true },
+        'too-many-parameters': { changedFilesOnly: true },
+        'oversized-function': { disabled: true },
       },
     };
     writeFileSync(join(repo.cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
@@ -134,7 +134,7 @@ describe('runner.run with baseline', () => {
 
   function writeMaxParamsConfig(cwd: string): void {
     const cfg = {
-      rules: { 'eslint:max-lines-per-function': { disabled: true } },
+      rules: { 'oversized-function': { disabled: true } },
     };
     writeFileSync(join(cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
   }

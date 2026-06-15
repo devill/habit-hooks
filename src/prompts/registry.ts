@@ -12,7 +12,7 @@ interface RuleSeed {
 
 const supplementalSeeds: RuleSeed[] = [
   {
-    id: 'eslint:fatal',
+    id: 'parse-error',
     title: 'ESLint fatal parse/config error',
     description: 'ESLint could not analyze the file — a parse error, unresolvable config, or a plugin threw.',
     severity: 'enforced',

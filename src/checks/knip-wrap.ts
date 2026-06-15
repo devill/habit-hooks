@@ -31,26 +31,41 @@ interface IssueContext {
   issueFile: string;
 }
 
+const KNIP_SMELL_MAP: Record<string, string> = {
+  classMembers: 'unused-class-member',
+  files: 'unused-file',
+  exports: 'unused-export',
+  dependencies: 'unused-dependency',
+};
+
+function knipSmell(issueType: string): string {
+  return KNIP_SMELL_MAP[issueType] ?? issueType;
+}
+
 interface BuildViolationArgs {
   ruleId: string;
+  source: string;
   file: string;
   message: string;
   loc: KnipLocation;
 }
 
 function buildViolation(args: BuildViolationArgs): Violation {
-  const { ruleId, file, message, loc } = args;
-  return { ruleId, file, line: loc.line ?? 1, column: loc.col, message };
+  const { ruleId, source, file, message, loc } = args;
+  return { ruleId, source, file, line: loc.line ?? 1, column: loc.col, message };
 }
 
 function locationToViolation(ctx: IssueContext, loc: KnipLocation): Violation {
-  const ruleId = `knip:${ctx.issueType}`;
-  return buildViolation({ ruleId, file: absolutize(ctx.cwd, ctx.issueFile), message: loc.name, loc });
+  const ruleId = knipSmell(ctx.issueType);
+  const source = `knip:${ctx.issueType}`;
+  return buildViolation({ ruleId, source, file: absolutize(ctx.cwd, ctx.issueFile), message: loc.name, loc });
 }
 
 function memberToViolation(ctx: IssueContext, owner: string, loc: KnipLocation): Violation {
-  const ruleId = `knip:${ctx.issueType}`;
-  return buildViolation({ ruleId, file: absolutize(ctx.cwd, ctx.issueFile), message: `${owner}.${loc.name}`, loc });
+  const ruleId = knipSmell(ctx.issueType);
+  const source = `knip:${ctx.issueType}`;
+  const file = absolutize(ctx.cwd, ctx.issueFile);
+  return buildViolation({ ruleId, source, file, message: `${owner}.${loc.name}`, loc });
 }
 
 function flattenMemberMap(ctx: IssueContext, members: KnipMemberMap): Violation[] {
@@ -90,10 +105,11 @@ function isPopulated(value: unknown): boolean {
 }
 
 function unknownKeyToViolation(cwd: string, issue: KnipIssue, key: string): Violation {
-  const ruleId = `knip:${key}`;
+  const ruleId = knipSmell(key);
+  const source = `knip:${key}`;
   const file = absolutize(cwd, issue.file);
   const message = 'unrecognised knip issue type';
-  return { ruleId, file, line: 1, message };
+  return { ruleId, source, file, line: 1, message };
 }
 
 function unknownKeysForIssue(issue: KnipIssue, cwd: string): Violation[] {
@@ -112,8 +128,8 @@ function issueToViolations(issue: KnipIssue, cwd: string): Violation[] {
 }
 
 function fileEntryToViolation(cwd: string, file: string): Violation {
-  const ruleId = 'knip:files';
-  return { ruleId, file: absolutize(cwd, file), line: 1, message: file };
+  const source = 'knip:files';
+  return { ruleId: knipSmell('files'), source, file: absolutize(cwd, file), line: 1, message: file };
 }
 
 function reportToViolations(report: KnipReport, cwd: string): Violation[] {

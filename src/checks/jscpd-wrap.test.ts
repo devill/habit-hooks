@@ -64,7 +64,7 @@ describe('jscpdWrap', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('returns jscpd:duplication violations for two near-identical files', async () => {
+  it('returns duplicated-code violations for two near-identical files', async () => {
     linkNodeModules(cwd);
     writeJscpdConfig(cwd);
     const a = writeFile(cwd, 'a.ts', DUPLICATE);
@@ -73,7 +73,7 @@ describe('jscpdWrap', () => {
     const outcome = await runWrap(cwd, [a, b]);
 
     expect(outcome.violations.length).toBeGreaterThanOrEqual(2);
-    expect(outcome.violations.every((v) => v.ruleId === 'jscpd:duplication')).toBe(true);
+    expect(outcome.violations.every((v) => v.ruleId === 'duplicated-code')).toBe(true);
     expect(outcome.violations.some((v) => v.file === a && v.message.includes(b))).toBe(true);
     expect(outcome.violations.some((v) => v.file === b && v.message.includes(a))).toBe(true);
     expect(outcome.stderr).toEqual([]);
@@ -187,7 +187,7 @@ describe('jscpdWrap', () => {
     const outcome = await runWrap(cwd, [a, b]);
 
     expect(outcome.violations.length).toBeGreaterThanOrEqual(2);
-    expect(outcome.violations.every((v) => v.ruleId === 'jscpd:duplication')).toBe(true);
+    expect(outcome.violations.every((v) => v.ruleId === 'duplicated-code')).toBe(true);
   }, 30_000);
 
   it('tryBundledJscpdBin returns null when the resolver throws', () => {

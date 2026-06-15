@@ -22,7 +22,7 @@ const CLEAN_FN = `export function add(a: number, b: number): number {
 `;
 
 function writeConfig(cwd: string): void {
-  const cfg = { rules: { 'eslint:max-lines-per-function': { disabled: true } } };
+  const cfg = { rules: { 'oversized-function': { disabled: true } } };
   writeFileSync(join(cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
 }
 
@@ -69,8 +69,8 @@ describe('baseline generate', () => {
     const cfg = {
       scope: { onlyChangedFiles: true },
       rules: {
-        'eslint:max-params': { changedFilesOnly: true },
-        'eslint:max-lines-per-function': { disabled: true },
+        'too-many-parameters': { changedFilesOnly: true },
+        'oversized-function': { disabled: true },
       },
     };
     writeFileSync(join(repo.cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));

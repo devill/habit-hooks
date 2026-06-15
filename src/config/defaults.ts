@@ -3,7 +3,7 @@ import type { HabitHooksConfig } from './schema.js';
 
 const tier1Rules: Rule[] = [
   {
-    id: 'eslint:max-lines-per-function',
+    id: 'oversized-function',
     source: 'eslint',
     sourceRuleId: 'max-lines-per-function',
     severity: 'enforced',
@@ -12,7 +12,7 @@ const tier1Rules: Rule[] = [
     description: 'Functions over 12 lines tend to bundle multiple responsibilities.',
   },
   {
-    id: 'eslint:max-params',
+    id: 'too-many-parameters',
     source: 'eslint',
     sourceRuleId: 'max-params',
     severity: 'enforced',
@@ -21,7 +21,7 @@ const tier1Rules: Rule[] = [
     description: 'Functions with many parameters violate single responsibility.',
   },
   {
-    id: 'eslint:complexity',
+    id: 'high-complexity',
     source: 'eslint',
     sourceRuleId: 'complexity',
     severity: 'enforced',
@@ -30,7 +30,7 @@ const tier1Rules: Rule[] = [
     description: 'Complex functions are harder to understand, test, and maintain.',
   },
   {
-    id: 'eslint:max-lines',
+    id: 'oversized-file',
     source: 'eslint',
     sourceRuleId: 'max-lines',
     severity: 'enforced',
@@ -42,7 +42,7 @@ const tier1Rules: Rule[] = [
 
 const tier2Rules: Rule[] = [
   {
-    id: 'eslint:no-unused-vars',
+    id: 'unused-variable',
     source: 'eslint',
     sourceRuleId: 'no-unused-vars',
     severity: 'enforced',
@@ -51,7 +51,7 @@ const tier2Rules: Rule[] = [
     description: 'Unused bindings are dead weight; remove them or rename with a leading underscore if intentional.',
   },
   {
-    id: 'eslint:eqeqeq',
+    id: 'loose-equality',
     source: 'eslint',
     sourceRuleId: 'eqeqeq',
     severity: 'enforced',
@@ -60,7 +60,7 @@ const tier2Rules: Rule[] = [
     description: 'Use === / !== to avoid silent coercion bugs.',
   },
   {
-    id: 'eslint:no-var',
+    id: 'var-declaration',
     source: 'eslint',
     sourceRuleId: 'no-var',
     severity: 'enforced',
@@ -69,7 +69,7 @@ const tier2Rules: Rule[] = [
     description: 'Use let or const; var hoists in surprising ways.',
   },
   {
-    id: 'eslint:prefer-const',
+    id: 'non-const-binding',
     source: 'eslint',
     sourceRuleId: 'prefer-const',
     severity: 'enforced',
@@ -78,7 +78,7 @@ const tier2Rules: Rule[] = [
     description: 'A let that is never reassigned should be const.',
   },
   {
-    id: 'eslint:no-duplicate-imports',
+    id: 'duplicate-import',
     source: 'eslint',
     sourceRuleId: 'no-duplicate-imports',
     severity: 'enforced',
@@ -87,7 +87,7 @@ const tier2Rules: Rule[] = [
     description: 'Merge multiple imports from the same module into a single statement.',
   },
   {
-    id: 'eslint:no-warning-comments',
+    id: 'warning-comment',
     source: 'eslint',
     sourceRuleId: 'no-warning-comments',
     severity: 'suggested',
@@ -99,7 +99,7 @@ const tier2Rules: Rule[] = [
 
 const tier3Rules: Rule[] = [
   {
-    id: 'eslint:@typescript-eslint/no-explicit-any',
+    id: 'explicit-any',
     source: 'eslint',
     sourceRuleId: '@typescript-eslint/no-explicit-any',
     severity: 'suggested',
@@ -108,7 +108,7 @@ const tier3Rules: Rule[] = [
     description: 'any disables the type checker; prefer a precise type or unknown plus a narrow.',
   },
   {
-    id: 'eslint:@typescript-eslint/no-non-null-assertion',
+    id: 'non-null-assertion',
     source: 'eslint',
     sourceRuleId: '@typescript-eslint/no-non-null-assertion',
     severity: 'suggested',
@@ -117,7 +117,7 @@ const tier3Rules: Rule[] = [
     description: 'The ! operator silences the type system; prove the value is present with a check.',
   },
   {
-    id: 'eslint:@typescript-eslint/no-inferrable-types',
+    id: 'redundant-type-annotation',
     source: 'eslint',
     sourceRuleId: '@typescript-eslint/no-inferrable-types',
     severity: 'enforced',
@@ -129,7 +129,7 @@ const tier3Rules: Rule[] = [
 
 const customRules: Rule[] = [
   {
-    id: 'comment:non-essential',
+    id: 'non-essential-comment',
     source: 'custom',
     severity: 'suggested',
     changedFilesOnly: true,
@@ -140,7 +140,7 @@ const customRules: Rule[] = [
 
 const jscpdRules: Rule[] = [
   {
-    id: 'jscpd:duplication',
+    id: 'duplicated-code',
     source: 'jscpd',
     severity: 'suggested',
     changedFilesOnly: true,
@@ -151,7 +151,7 @@ const jscpdRules: Rule[] = [
 
 const knipRules: Rule[] = [
   {
-    id: 'knip:classMembers',
+    id: 'unused-class-member',
     source: 'knip',
     severity: 'enforced',
     changedFilesOnly: false,
@@ -175,9 +175,9 @@ const CONFIG_FILE_EXCLUDE = ['habit-hooks.config.*'];
 
 export const defaultConfig: HabitHooksConfig = {
   rules: {
-    'eslint:max-lines-per-function': { exclude: TEST_FILE_EXCLUDE },
-    'eslint:max-lines': { exclude: TEST_FILE_EXCLUDE },
-    'jscpd:duplication': { exclude: TEST_FILE_EXCLUDE },
-    'comment:non-essential': { exclude: CONFIG_FILE_EXCLUDE },
+    'oversized-function': { exclude: TEST_FILE_EXCLUDE },
+    'oversized-file': { exclude: TEST_FILE_EXCLUDE },
+    'duplicated-code': { exclude: TEST_FILE_EXCLUDE },
+    'non-essential-comment': { exclude: CONFIG_FILE_EXCLUDE },
   },
 };

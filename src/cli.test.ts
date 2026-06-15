@@ -87,7 +87,7 @@ describe('cli', () => {
       repo = createGitRepo({ withEslint: true });
       const cfg = {
         scope: { branchBase: 'main' },
-        rules: { 'eslint:max-lines-per-function': { disabled: true } },
+        rules: { 'oversized-function': { disabled: true } },
       };
       writeFileSync(join(repo.cwd, 'habit-hooks.config.json'), JSON.stringify(cfg));
       repo.commitAll('initial config');

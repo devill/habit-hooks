@@ -11,7 +11,7 @@ import type { Check, CheckOutcome, Violation } from '../types.js';
 
 const require = createRequire(import.meta.url);
 
-const RULE_ID = 'jscpd:duplication';
+const SMELL = 'duplicated-code';
 const REPORT_FILENAME = 'jscpd-report.json';
 
 const JSCPD_CONFIG_FILES = ['.jscpd.json', 'jscpd.json'];
@@ -84,7 +84,8 @@ function locationDescription(loc: JscpdLocation, cwd: string): string {
 
 function buildViolation(self: JscpdLocation, partner: JscpdLocation, cwd: string): Violation {
   return {
-    ruleId: RULE_ID,
+    ruleId: SMELL,
+    source: 'jscpd:duplication',
     file: absolutize(cwd, self.name),
     line: self.startLoc.line,
     column: self.startLoc.column,

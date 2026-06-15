@@ -12,22 +12,22 @@ interface ExpectedCount {
 }
 
 const EXPECTED: ExpectedCount[] = [
-  { ruleId: 'eslint:max-lines-per-function', count: 1 },
-  { ruleId: 'eslint:max-params', count: 1 },
-  { ruleId: 'eslint:complexity', count: 1 },
-  { ruleId: 'eslint:max-lines', count: 1 },
-  { ruleId: 'eslint:no-unused-vars', count: 1 },
-  { ruleId: 'eslint:eqeqeq', count: 1 },
-  { ruleId: 'eslint:no-var', count: 1 },
-  { ruleId: 'eslint:prefer-const', count: 1 },
-  { ruleId: 'eslint:no-duplicate-imports', count: 1 },
-  { ruleId: 'eslint:no-warning-comments', count: 1 },
-  { ruleId: 'eslint:@typescript-eslint/no-explicit-any', count: 1 },
-  { ruleId: 'eslint:@typescript-eslint/no-non-null-assertion', count: 1 },
-  { ruleId: 'eslint:@typescript-eslint/no-inferrable-types', count: 1 },
-  { ruleId: 'comment:non-essential', count: 1 },
-  { ruleId: 'jscpd:duplication', count: 2 },
-  { ruleId: 'knip:classMembers', count: 1 },
+  { ruleId: 'oversized-function', count: 1 },
+  { ruleId: 'too-many-parameters', count: 1 },
+  { ruleId: 'high-complexity', count: 1 },
+  { ruleId: 'oversized-file', count: 1 },
+  { ruleId: 'unused-variable', count: 1 },
+  { ruleId: 'loose-equality', count: 1 },
+  { ruleId: 'var-declaration', count: 1 },
+  { ruleId: 'non-const-binding', count: 1 },
+  { ruleId: 'duplicate-import', count: 1 },
+  { ruleId: 'warning-comment', count: 1 },
+  { ruleId: 'explicit-any', count: 1 },
+  { ruleId: 'non-null-assertion', count: 1 },
+  { ruleId: 'redundant-type-annotation', count: 1 },
+  { ruleId: 'non-essential-comment', count: 1 },
+  { ruleId: 'duplicated-code', count: 2 },
+  { ruleId: 'unused-class-member', count: 1 },
 ];
 
 function countBy(violations: { ruleId: string }[]): Map<string, number> {

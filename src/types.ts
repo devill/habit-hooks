@@ -34,6 +34,7 @@ export interface Violation {
   line: number;
   column?: number;
   message: string;
+  source?: string;
 }
 
 export interface CheckOutcome {

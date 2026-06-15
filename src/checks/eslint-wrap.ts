@@ -57,16 +57,34 @@ function isConfigError(result: ShellResult, parsed: EslintFileResult[] | null): 
   return result.exitCode !== 0 && result.exitCode !== 1;
 }
 
+const ESLINT_SMELL_MAP: Record<string, string> = {
+  'max-lines-per-function': 'oversized-function',
+  'max-params': 'too-many-parameters',
+  complexity: 'high-complexity',
+  'max-lines': 'oversized-file',
+  'no-unused-vars': 'unused-variable',
+  eqeqeq: 'loose-equality',
+  'no-var': 'var-declaration',
+  'prefer-const': 'non-const-binding',
+  'no-duplicate-imports': 'duplicate-import',
+  'no-warning-comments': 'warning-comment',
+  '@typescript-eslint/no-explicit-any': 'explicit-any',
+  '@typescript-eslint/no-non-null-assertion': 'non-null-assertion',
+  '@typescript-eslint/no-inferrable-types': 'redundant-type-annotation',
+};
+
 function messageToViolation(filePath: string, m: EslintMessage & { ruleId: string }): Violation {
-  const ruleId = `eslint:${m.ruleId}`;
-  const prompt = lookupPrompt(ruleId);
-  const title = prompt?.title ?? m.ruleId;
-  return { ruleId, file: filePath, line: m.line, column: m.column, message: `${title}: ${m.message}` };
+  const smell = ESLINT_SMELL_MAP[m.ruleId] ?? m.ruleId;
+  const title = lookupPrompt(smell)?.title ?? m.ruleId;
+  const message = `${title}: ${m.message}`;
+  const source = `eslint:${m.ruleId}`;
+  return { ruleId: smell, source, file: filePath, line: m.line, column: m.column, message };
 }
 
 function fatalToViolation(filePath: string, m: EslintMessage): Violation {
   return {
-    ruleId: 'eslint:fatal',
+    ruleId: 'parse-error',
+    source: 'eslint:fatal',
     file: filePath,
     line: m.line,
     column: m.column,

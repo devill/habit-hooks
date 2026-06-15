@@ -105,7 +105,7 @@ function collectUncoached(acc: RenderAcc, groups: Map<string, Violation[]>): Vio
 }
 
 function formatUncoachedLine(v: Violation): string {
-  return `- ${v.ruleId}: ${v.message} (${v.file}:${v.line})`;
+  return `- ${v.source ?? v.ruleId}: ${v.message} (${v.file}:${v.line})`;
 }
 
 function renderUncoachedBody(violations: Violation[]): string {

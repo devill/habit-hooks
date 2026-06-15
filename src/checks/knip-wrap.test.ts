@@ -68,7 +68,7 @@ describe('knipWrap', () => {
 
     const outcome = await runWrap(cwd, [main, foo]);
 
-    expect(outcome.violations.some((v) => v.ruleId === 'knip:classMembers' && v.file === foo)).toBe(true);
+    expect(outcome.violations.some((v) => v.ruleId === 'unused-class-member' && v.file === foo)).toBe(true);
     expect(outcome.stderr).toEqual([]);
   }, 30_000);
 
@@ -97,7 +97,7 @@ describe('knipWrap', () => {
 
     const outcome = await runWrap(cwd, [main]);
 
-    expect(outcome.violations.some((v) => v.ruleId === 'knip:classMembers')).toBe(true);
+    expect(outcome.violations.some((v) => v.ruleId === 'unused-class-member')).toBe(true);
   }, 30_000);
 
   it('skips invocation entirely when file list is empty', async () => {
@@ -109,7 +109,7 @@ describe('knipWrap', () => {
     expect(outcome).toEqual({ violations: [], stderr: [] });
   });
 
-  it('emits a knip:files violation for top-level report.files entries', async () => {
+  it('emits an unused-file violation for top-level report.files entries', async () => {
     linkNodeModules(cwd);
     writeFile(cwd, 'package.json', JSON.stringify({ name: 'fixture', version: '0.0.0', type: 'module' }));
     writeFile(cwd, 'knip.json', JSON.stringify({ entry: ['src/main.ts'], project: ['src/**/*.ts'] }));
@@ -118,7 +118,7 @@ describe('knipWrap', () => {
 
     const outcome = await runWrap(cwd, [main, orphan]);
 
-    const filesViolation = outcome.violations.find((v) => v.ruleId === 'knip:files');
+    const filesViolation = outcome.violations.find((v) => v.ruleId === 'unused-file');
     expect(filesViolation).toBeDefined();
     expect(filesViolation?.file).toBe(orphan);
   }, 30_000);
@@ -146,7 +146,8 @@ describe('knipWrap', () => {
     expect(outcome.violations).toHaveLength(1);
     const [v] = outcome.violations;
     if (v === undefined) throw new Error('expected one violation');
-    expect(v.ruleId).toBe('knip:unlistedPeerDependencies');
+    expect(v.ruleId).toBe('unlistedPeerDependencies');
+    expect(v.source).toBe('knip:unlistedPeerDependencies');
     expect(v.file).toBe(file);
     expect(v.message).toBe('unrecognised knip issue type');
     expect(outcome.stderr).toEqual([]);
@@ -195,7 +196,7 @@ describe('knipWrap', () => {
     expect(outcome.violations).toHaveLength(1);
     const [v] = outcome.violations;
     if (v === undefined) throw new Error('expected one violation');
-    expect(v.ruleId).toBe('knip:someFutureMemberMap');
+    expect(v.ruleId).toBe('someFutureMemberMap');
     expect(v.file).toBe(file);
     expect(v.message).toBe('unrecognised knip issue type');
   });
@@ -228,7 +229,7 @@ describe('knipWrap', () => {
 
     expect(outcome.violations).toHaveLength(2);
     const ruleIds = outcome.violations.map((v) => v.ruleId).sort();
-    expect(ruleIds).toEqual(['knip:someFutureType', 'knip:unlistedPeerDependencies']);
+    expect(ruleIds).toEqual(['someFutureType', 'unlistedPeerDependencies']);
   });
 
   it('unknown knip issue types flow through reporter as uncoached', async () => {
@@ -258,7 +259,7 @@ describe('knipWrap', () => {
     expect(reported.exitCode).toBe(0);
   });
 
-  it('emits a knip:files violation for per-issue files entries (knip 6 shape)', async () => {
+  it('emits an unused-file violation for per-issue files entries (knip 6 shape)', async () => {
     const knipDir = join(cwd, 'node_modules', 'knip');
     mkdirSync(knipDir, { recursive: true });
     const payload = { files: [], issues: [{ file: 'src/walk.ts', files: [{ name: 'src/walk.ts' }] }] };
@@ -278,12 +279,13 @@ describe('knipWrap', () => {
     expect(outcome.violations).toHaveLength(1);
     const [v] = outcome.violations;
     if (v === undefined) throw new Error('expected one violation');
-    expect(v.ruleId).toBe('knip:files');
+    expect(v.ruleId).toBe('unused-file');
+    expect(v.source).toBe('knip:files');
     expect(v.message).toContain('src/walk.ts');
     expect(v.message).not.toContain('unrecognised');
   });
 
-  it('emits knip:namespaceMembers violations for namespace member maps (knip 6 shape)', async () => {
+  it('emits namespaceMembers violations for namespace member maps (knip 6 shape)', async () => {
     const knipDir = join(cwd, 'node_modules', 'knip');
     mkdirSync(knipDir, { recursive: true });
     const payload = {
@@ -306,7 +308,7 @@ describe('knipWrap', () => {
     expect(outcome.violations).toHaveLength(1);
     const [v] = outcome.violations;
     if (v === undefined) throw new Error('expected one violation');
-    expect(v.ruleId).toBe('knip:namespaceMembers');
+    expect(v.ruleId).toBe('namespaceMembers');
     expect(v.message).toContain('Mod.unused');
   });
 
@@ -359,7 +361,7 @@ describe('knipWrap', () => {
 
     const outcome = await runWrap(cwd, [main, foo]);
 
-    expect(outcome.violations.some((v) => v.ruleId === 'knip:classMembers')).toBe(true);
+    expect(outcome.violations.some((v) => v.ruleId === 'unused-class-member')).toBe(true);
   }, 30_000);
 
   function installFakeKnip(version: string): void {

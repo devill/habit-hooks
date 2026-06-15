@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildRules } from './registry.js';
 import { DEFAULT_COMMENT_CHECK_THRESHOLDS } from '../checks/comment-check.js';
 
-const COMMENT_RULE_ID = 'comment:non-essential';
+const COMMENT_RULE_ID = 'non-essential-comment';
 
 describe('buildRules', () => {
   it('attaches default commentCheck thresholds when config.commentCheck is missing', () => {

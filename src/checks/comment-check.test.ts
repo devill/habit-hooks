@@ -6,7 +6,7 @@ import { commentCheck } from './comment-check.js';
 import type { Rule } from '../types.js';
 
 const RULE: Rule = {
-  id: 'comment:non-essential',
+  id: 'non-essential-comment',
   source: 'custom',
   severity: 'suggested',
   changedFilesOnly: false,
