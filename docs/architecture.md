@@ -1,8 +1,12 @@
 # Habit Hooks architecture
 
-Habit Hooks is a pre-commit / agent quality gate. It does **not** auto-edit
-code — its "fix" stage is *coaching*: it hands the agent (or human) the
-guidance needed to make the fix itself.
+Habit Hooks is an automated code quality coach for AI agents. At its core it
+is a **router between smell detectors and fixers**: it finds smells, names
+them in a tool-independent vocabulary, and routes each to the right fix
+strategy.
+
+The default fix strategy is a *coaching* prompt for the agent but long term 
+fix can also be a deterministic script that applies a specific fix. 
 
 The system is three independently-configurable stages connected by a JSON
 **bag**:
@@ -19,8 +23,8 @@ graph LR
   each finding into a canonical, tool-independent **smell key**.
 - **mapper** — *route the smell.* A pure function `smell → GuideAction`.
   Data, not code.
-- **guide** — *coach the fix, gate the commit.* Emit the prompt (default)
-  or run a command (override); compute the exit code.
+- **guide** — *coach the fix, signal pass/fail.* Render the prompt template
+  (default) or run a command (override); compute the exit code.
 
 ## Why three stages
 
@@ -38,29 +42,39 @@ Stages communicate through a single JSON value. The sensor stage produces:
   "issues": [
     {
       "smell": "too-many-parameters",   // canonical routing key (kebab-case)
-      "file": "src/billing.ts",
-      "line": 2,
-      "column": 22,
-      "message": "Function 'chargeCard' has 5 parameters (max 3).",
-      "source": "eslint:max-params",     // provenance only — never routed on
-      "details": { "count": 5, "max": 3 } // open bag: metrics + interpolation
+      "details": {                      // open bag: metrics + interpolation
+        "file": "src/billing.ts",
+        "line": 2,
+        "column": 22,
+      }
     }
   ]
 }
 ```
 
-`smell` is the **only** field the mapper routes on. `source` records which
-tool/raw-rule produced it, for debugging and reporting — nothing keys off it.
-`details` is free-form; sensors add whatever a prompt or command might want.
+`smell` is the **only** field the mapper routes on. `details` is the open
+bag: each sensor fills it with whatever is relevant to *that* smell.
+
+Common fields are conventional, so most bags look alike and one prompt can
+rely on them:
+
+| Field             | Meaning                              |
+|-------------------|--------------------------------------|
+| `file`            | path the smell was found in          |
+| `line` / `column` | location within the file             |
+| `message`         | the tool's human-readable message    |
+| `source`          | provenance, e.g. `eslint:max-params` |
+
+A smell may define its own required `details` shape (see
+[smell-vocabulary.md](smell-vocabulary.md)); its prompt template consumes
+exactly that shape.
 
 An empty run is `{ "issues": [] }`.
 
-## The smell key: the central decoupling
+## The smell key
 
-Previously a finding's key *was* its tool (`eslint:max-lines`,
-`knip:classMembers`). That coupled our routing — and our prompts — to
-specific tools. Now each sensor owns the translation from its tool's raw
-rule IDs to a canonical smell key:
+Each sensor translates its tool's raw rule IDs into a canonical smell key.
+The mapper and prompts key off the smell, never the tool:
 
 ```
 ESLint  max-params  ─┐
@@ -68,12 +82,9 @@ Ruff    R0913       ─┼──►  too-many-parameters  ──►  too-many-pa
 Biome   noTooMany.. ─┘
 ```
 
-**Tool-independent is not the same as language-universal.** `explicit-any`
-is meaningful only in TypeScript, but it is still not *tool*-bound — ESLint,
-`tsc`, or Biome could each detect it. A smell key must never name a tool; it
-may name a language-specific concept.
-
-See [smell-vocabulary.md](smell-vocabulary.md) for the catalogue.
+Tool-independent is not language-universal: `explicit-any` is TypeScript-only
+but still not tool-bound (ESLint, `tsc`, or Biome could each detect it). A
+smell key must never name a tool; it may name a language-specific concept.
 
 ## Stage specs
 
@@ -84,22 +95,12 @@ See [smell-vocabulary.md](smell-vocabulary.md) for the catalogue.
 
 ## Packaging
 
-One npm package today, with the three stages kept behind clean internal
-seams so they can be split into separately-installable packages later if
-demand appears. *(Decision 1, human-requested.)*
+One npm package, three stages behind clean internal seams so they can split
+into separate packages later.
 
-## Backwards compatibility
+## Combinations (long term)
 
-The rekey from `tool:rule` keys to smell keys is a **hard break** with a
-major version bump. There are no production consumers to migrate yet.
-*(Decision 2, human-requested.)*
-
-## Long-term: combinations via composite sensors
-
-Routing on *sets* of co-occurring smells (e.g. "this file has both
-`oversized-file` and `duplicated-code` → suggest extracting a module") is
-**out of scope for now**. When we want it, it belongs in the sensor layer,
-not the mapper: a **composite sensor** subscribes to other sensors' issues
-and emits a new derived smell key. The mapper stays a pure single-smell
-function and never learns about combinations. *(Decision 3/4,
-human-requested — deferred.)*
+Routing on co-occurring smells (e.g. `oversized-file` + `duplicated-code` →
+extract a module) belongs in the sensor layer, not the mapper: a **composite
+sensor** subscribes to other sensors' issues and emits a derived smell. The
+mapper stays a pure single-smell function. Out of scope for v1.
