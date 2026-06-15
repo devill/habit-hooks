@@ -36,21 +36,22 @@ export function issueToViolation(issue: Issue): Violation {
   const d = issue.details;
   const column = typeof d.column === 'number' ? d.column : undefined;
   const source = typeof d.source === 'string' ? d.source : undefined;
-  return { ruleId: issue.smell, file: String(d.file), line: Number(d.line), column, message: String(d.message), source };
+  const line = typeof d.line === 'number' ? d.line : 1;
+  return { ruleId: issue.smell, file: String(d.file), line, column, message: String(d.message), source };
 }
 
 function normalizeOutcome(result: Violation[] | CheckOutcome): CheckOutcome {
   return Array.isArray(result) ? { violations: result } : result;
 }
 
-interface LeafSpec {
+export interface LeafSpec {
   check: Check;
   produces: string[];
   notices: string[];
   rules?: Rule[];
 }
 
-function checkLeafSensor(spec: LeafSpec): Sensor {
+export function checkLeafSensor(spec: LeafSpec): Sensor {
   return {
     id: spec.check.id,
     produces: spec.produces,

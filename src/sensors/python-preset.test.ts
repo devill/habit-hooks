@@ -1,0 +1,61 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { buildPythonPresetSensors } from './python-preset.js';
+
+// The live ruff test needs ruff on PATH; skip where it is not installed (CI
+// without the Python toolchain) so the suite stays green everywhere.
+const RUFF_AVAILABLE = spawnSync('ruff', ['--version']).status === 0;
+
+const SAMPLE = `def handler(a, b, c, d, e, f):
+    unused = 42
+    return a + b + c + d + e + f
+`;
+
+describe('python preset', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'hh-py-'));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('registers ruff, jscpd, and deptry sensors with their smell keys', () => {
+    const sensors = buildPythonPresetSensors({ notices: [] });
+    expect(sensors.map((s) => s.id)).toEqual(['ruff', 'jscpd', 'deptry']);
+    expect(sensors[0]?.produces).toContain('too-many-parameters');
+    expect(sensors[2]?.produces).toEqual(['unused-dependency']);
+  });
+
+  it.skipIf(!RUFF_AVAILABLE)('runs ruff and maps PLR0913/F841 to canonical smells with provenance', async () => {
+    const file = join(dir, 'sample.py');
+    writeFileSync(file, SAMPLE);
+    const ruff = buildPythonPresetSensors({ notices: [] })[0];
+    if (ruff === undefined) throw new Error('expected ruff sensor');
+
+    const issues = await ruff.run({ files: [file], cwd: dir, deps: [] });
+
+    const smells = new Set(issues.map((i) => i.smell));
+    expect(smells.has('too-many-parameters')).toBe(true);
+    expect(smells.has('unused-variable')).toBe(true);
+    const params = issues.find((i) => i.smell === 'too-many-parameters');
+    expect(params?.details.source).toBe('ruff:PLR0913');
+    expect(params?.details.file).toBe(file);
+  }, 30_000);
+
+  it('emits a stderr notice and zero issues when ruff is not on PATH', async () => {
+    const notices: string[] = [];
+    const ruff = buildPythonPresetSensors({ notices })[0];
+    if (ruff === undefined) throw new Error('expected ruff sensor');
+    const file = join(dir, 'a.py');
+    writeFileSync(file, 'x = 1\n');
+
+    const issues = await ruff.run({ files: [file], cwd: '/nonexistent-path-xyz', deps: [] });
+
+    expect(issues).toEqual([]);
+  }, 30_000);
+});

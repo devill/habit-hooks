@@ -139,3 +139,30 @@ Each is labelled _agent decision_ per the working agreement.
   unknown, e.g. eslint `no-console`) goes to the uncoached bucket (never
   escalates). Matches the old reporter exactly. Guarded by a runner test isolating
   an enforced-but-untemplated smell (`loose-equality` -> exit 1).
+
+## Phase 5 — Declarative adapter + Python preset
+
+- **De-risk passed (validated in code).** *(agent decision)* Captured live
+  `ruff --output-format=json` (flat array) and live `eslint -f json` (nested
+  `messages[]` per file); `src/sensors/adapter.ts extractIssues` handles both via
+  the two-level `group`/`items`/`fields`/`map` model — `adapter.test.ts` pins both
+  shapes. The model expresses the two toolchains, so the preset is built on it.
+
+- **`declarativeSensor` runs a JSON-emitting tool as a leaf sensor.** Splits the
+  `command` on whitespace, expands `${files}`, runs it, parses stdout JSON, and
+  extracts. Spawn failure -> stderr notice + zero issues (sensor contract).
+
+- **Python preset (`src/sensors/python-preset.ts`): ruff + jscpd + deptry.**
+  ruff `C901/PLR0913/PLR0915/F841` -> `high-complexity/too-many-parameters/
+  oversized-function/unused-variable` per the GOAL table; jscpd reuses the shared
+  `checkLeafSensor` for `duplicated-code` on `.py`; deptry runs
+  `deptry . --json-output /dev/stdout` (flat array) and maps `DEP002` ->
+  `unused-dependency`.
+
+- **Agent decisions on the mapping:** added ruff `F401` -> **`unused-import`** (a
+  new general smell — cheap and useful, per the GOAL's allowance). **Deferred
+  `oversized-file` for Python** — no clean ruff rule (GOAL says best-effort or
+  defer). deptry's `/dev/stdout` JSON is POSIX-only, fine for the Linux e2e.
+
+- The live-ruff preset test skips when ruff is not on PATH (CI without the Python
+  toolchain) so the suite stays green everywhere; it runs in the provisioned env.
