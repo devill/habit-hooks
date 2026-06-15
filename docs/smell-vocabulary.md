@@ -21,56 +21,56 @@ block and its occurrences, not just a single `file`/`line`.
 Default severity: `enforced` fails the run (exit 1); `suggested` coaches but
 exits 0. The mapper config can override it per project.
 
-| Smell key | Title | Default severity |
-|---|---|---|
-| `oversized-function` | Oversized function | enforced |
-| `too-many-parameters` | Too many parameters | enforced |
-| `high-complexity` | High cyclomatic complexity | enforced |
-| `oversized-file` | Oversized file | enforced |
-| `unused-variable` | Unused variable | enforced |
-| `loose-equality` | Loose equality | enforced |
-| `var-declaration` | `var` declaration | enforced |
-| `non-const-binding` | Reassignable binding never reassigned | enforced |
-| `duplicate-import` | Duplicate import | enforced |
-| `warning-comment` | Warning comment (TODO/FIXME/…) | suggested |
-| `explicit-any` | Explicit `any` | suggested |
-| `non-null-assertion` | Non-null assertion | suggested |
-| `redundant-type-annotation` | Redundant type annotation | enforced |
-| `non-essential-comment` | Non-essential comment | suggested |
-| `duplicated-code` | Duplicated code | suggested |
-| `unused-class-member` | Unused class member | enforced |
-| `unused-file` | Unused file | enforced |
-| `unused-export` | Unused export | enforced |
-| `unused-dependency` | Unused dependency | enforced |
-| `parse-error` | Parse / config error | enforced |
+| Smell key                   | Title                                 | Default severity |
+|-----------------------------|---------------------------------------|------------------|
+| `oversized-function`        | Oversized function                    | enforced         |
+| `too-many-parameters`       | Too many parameters                   | enforced         |
+| `high-complexity`           | High cyclomatic complexity            | enforced         |
+| `oversized-file`            | Oversized file                        | enforced         |
+| `unused-variable`           | Unused variable                       | enforced         |
+| `loose-equality`            | Loose equality                        | enforced         |
+| `var-declaration`           | `var` declaration                     | enforced         |
+| `non-const-binding`         | Reassignable binding never reassigned | enforced         |
+| `duplicate-import`          | Duplicate import                      | enforced         |
+| `warning-comment`           | Warning comment (TODO/FIXME/…)        | suggested        |
+| `explicit-any`              | Explicit `any`                        | suggested        |
+| `non-null-assertion`        | Non-null assertion                    | suggested        |
+| `redundant-type-annotation` | Redundant type annotation             | enforced         |
+| `non-essential-comment`     | Non-essential comment                 | suggested        |
+| `duplicated-code`           | Duplicated code                       | suggested        |
+| `unused-class-member`       | Unused class member                   | enforced         |
+| `unused-file`               | Unused file                           | enforced         |
+| `unused-export`             | Unused export                         | enforced         |
+| `unused-dependency`         | Unused dependency                     | enforced         |
+| `parse-error`               | Parse / config error                  | enforced         |
 
 ## TypeScript/JavaScript preset translation
 
 The raw rule IDs the TS/JS preset sensors emit, and the smell key each maps
 to.
 
-| Raw key (tool:rule) | Smell key |
-|---|---|
-| `eslint:max-lines-per-function` | `oversized-function` |
-| `eslint:max-params` | `too-many-parameters` |
-| `eslint:complexity` | `high-complexity` |
-| `eslint:max-lines` | `oversized-file` |
-| `eslint:no-unused-vars` | `unused-variable` |
-| `eslint:eqeqeq` | `loose-equality` |
-| `eslint:no-var` | `var-declaration` |
-| `eslint:prefer-const` | `non-const-binding` |
-| `eslint:no-duplicate-imports` | `duplicate-import` |
-| `eslint:no-warning-comments` | `warning-comment` |
-| `eslint:@typescript-eslint/no-explicit-any` | `explicit-any` |
-| `eslint:@typescript-eslint/no-non-null-assertion` | `non-null-assertion` |
-| `eslint:@typescript-eslint/no-inferrable-types` | `redundant-type-annotation` |
-| `comment:non-essential` | `non-essential-comment` |
-| `jscpd:duplication` | `duplicated-code` |
-| `knip:classMembers` | `unused-class-member` |
-| `knip:files` | `unused-file` |
-| `knip:exports` | `unused-export` |
-| `knip:dependencies` | `unused-dependency` |
-| `eslint:fatal` | `parse-error` |
+| Raw key (tool:rule)                               | Smell key                   |
+|---------------------------------------------------|-----------------------------|
+| `eslint:max-lines-per-function`                   | `oversized-function`        |
+| `eslint:max-params`                               | `too-many-parameters`       |
+| `eslint:complexity`                               | `high-complexity`           |
+| `eslint:max-lines`                                | `oversized-file`            |
+| `eslint:no-unused-vars`                           | `unused-variable`           |
+| `eslint:eqeqeq`                                   | `loose-equality`            |
+| `eslint:no-var`                                   | `var-declaration`           |
+| `eslint:prefer-const`                             | `non-const-binding`         |
+| `eslint:no-duplicate-imports`                     | `duplicate-import`          |
+| `eslint:no-warning-comments`                      | `warning-comment`           |
+| `eslint:@typescript-eslint/no-explicit-any`       | `explicit-any`              |
+| `eslint:@typescript-eslint/no-non-null-assertion` | `non-null-assertion`        |
+| `eslint:@typescript-eslint/no-inferrable-types`   | `redundant-type-annotation` |
+| `comment:non-essential`                           | `non-essential-comment`     |
+| `jscpd:duplication`                               | `duplicated-code`           |
+| `knip:classMembers`                               | `unused-class-member`       |
+| `knip:files`                                      | `unused-file`               |
+| `knip:exports`                                    | `unused-export`             |
+| `knip:dependencies`                               | `unused-dependency`         |
+| `eslint:fatal`                                    | `parse-error`               |
 
 ## Uncoached smells
 
