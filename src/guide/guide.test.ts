@@ -66,6 +66,7 @@ describe('guide', () => {
     expect(out.exitCode).toBe(0);
     expect(out.stdout).toContain('automated checks passed.');
     expect(out.stdout).toContain('reviewer sub-agent');
+    expect(out.stdout.endsWith('\n\n')).toBe(true);
   });
 
   it('composes a section: title, prose (not the description), and the default issue list', () => {

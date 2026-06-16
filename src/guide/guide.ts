@@ -88,7 +88,7 @@ function exitFor(actions: GuideAction[]): 0 | 1 {
 export function guide(input: GuideInput): GuideResult {
   const { result, dirs } = input;
   const total = totalIssues(result);
-  if (total === 0) return { stdout: `${CLEAN_BANNER}\n`, exitCode: 0 };
+  if (total === 0) return { stdout: `${CLEAN_BANNER}\n\n`, exitCode: 0 };
   const env = createEnv(searchPathsFor(dirs));
   const sections = [
     header(total),
