@@ -7,7 +7,7 @@ import type { Language } from '../../config/schema.js';
 import { addCiScript, addHabitHooksScript } from './package-scripts.js';
 import { installPreCommitHook } from './git-hook.js';
 import { installSkills } from './skill.js';
-import { AGENT_SNIPPET } from './snippet.js';
+import { agentSnippet } from './snippet.js';
 import {
   reportHookResult,
   reportScriptResult,
@@ -64,7 +64,7 @@ async function maybeInstallHook(ctx: Ctx, prompter: Prompter): Promise<void> {
   if (ctx.dryRun) return;
   const yes = await prompter.ask('Install a git pre-commit hook?', { defaultYes: false });
   if (!yes) return;
-  reportHookResult(installPreCommitHook(ctx.cwd), ctx.lines);
+  reportHookResult(installPreCommitHook(ctx.cwd, ctx.language), ctx.lines);
 }
 
 async function maybeInstallSkill(ctx: Ctx, prompter: Prompter): Promise<void> {
@@ -77,15 +77,20 @@ async function maybeInstallSkill(ctx: Ctx, prompter: Prompter): Promise<void> {
   reportSkillResults(installSkills(), ctx.lines);
 }
 
-function printSnippet(lines: Lines): void {
-  lines.out.push('\n--- paste into CLAUDE.md / AGENTS.md ---\n');
-  lines.out.push(AGENT_SNIPPET);
-  lines.out.push('--- end snippet ---\n');
+function printSnippet(ctx: Ctx): void {
+  ctx.lines.out.push('\n--- paste into CLAUDE.md / AGENTS.md ---\n');
+  ctx.lines.out.push(agentSnippet(ctx.language));
+  ctx.lines.out.push('--- end snippet ---\n');
+}
+
+async function maybeAddNpmScripts(ctx: Ctx, prompter: Prompter): Promise<void> {
+  if (ctx.language === 'python') return;
+  await maybeAddHabitHooksScript(ctx, prompter);
+  await maybeAddCiScript(ctx, prompter);
 }
 
 async function runPrompts(ctx: Ctx, prompter: Prompter): Promise<void> {
-  await maybeAddHabitHooksScript(ctx, prompter);
-  await maybeAddCiScript(ctx, prompter);
+  await maybeAddNpmScripts(ctx, prompter);
   await maybeInstallHook(ctx, prompter);
   await maybeInstallSkill(ctx, prompter);
 }
@@ -103,7 +108,7 @@ async function scaffold(ctx: Ctx, prompter: Prompter): Promise<InitResult> {
   writeConfigStep(ctx);
   writeBaselineStep(ctx);
   await runPrompts(ctx, prompter);
-  printSnippet(ctx.lines);
+  printSnippet(ctx);
   return toResult(ctx.lines);
 }
 

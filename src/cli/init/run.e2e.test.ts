@@ -37,15 +37,16 @@ describe('runInit end-to-end on real tmpdirs', () => {
     expect(readdirSync(d.cwd)).toEqual(['package.json']);
   });
 
-  it('init python writes the config but no TypeScript tool configs', async () => {
+  it('init python scaffolds python tool configs and no TypeScript tool configs', async () => {
     writeMinimalPackageJson(d.cwd);
     writeFileSync(join(d.cwd, 'pyproject.toml'), '[project]\nname = "x"\n');
     const result = await runInit(d.cwd, { prompter: makeAutoPrompter(false), language: 'python' });
     expect(result.exitCode).toBe(0);
     expect(readFileSync(join(d.cwd, 'habit-hooks.config.js'), 'utf8')).toContain("language: 'python'");
+    expect(existsSync(join(d.cwd, 'ruff.toml'))).toBe(true);
+    expect(existsSync(join(d.cwd, '.jscpd.json'))).toBe(true);
     expect(existsSync(join(d.cwd, 'eslint.config.js'))).toBe(false);
     expect(existsSync(join(d.cwd, 'knip.json'))).toBe(false);
-    expect(existsSync(join(d.cwd, '.jscpd.json'))).toBe(false);
   });
 
   it('dry-run on an empty dir writes nothing and announces planned writes', async () => {

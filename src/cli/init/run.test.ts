@@ -327,7 +327,7 @@ describe('runInit', () => {
   });
 
   describe('explicit language', () => {
-    it('init python writes config with language python and no TS tooling', async () => {
+    it('init python scaffolds ruff + jscpd configs and python habit-hooks config', async () => {
       writePackageJson(s.cwd, { name: 'demo' });
       writeFileSync(join(s.cwd, 'pyproject.toml'), '[project]\nname = "x"\n');
       const result = await runInit(s.cwd, { prompter: makeAutoPrompter(false), language: 'python' });
@@ -335,10 +335,78 @@ describe('runInit', () => {
       expect(readFileSync(join(s.cwd, 'habit-hooks.config.js'), 'utf8')).toContain(
         "language: 'python'",
       );
+      expect(existsSync(join(s.cwd, 'ruff.toml'))).toBe(true);
+      expect(existsSync(join(s.cwd, '.jscpd.json'))).toBe(true);
       expect(existsSync(join(s.cwd, 'eslint.config.js'))).toBe(false);
       expect(existsSync(join(s.cwd, 'knip.json'))).toBe(false);
-      expect(existsSync(join(s.cwd, '.jscpd.json'))).toBe(false);
-      expect(result.stdout).not.toContain('To install missing tools, run:');
+    });
+
+    it('init python writes a python-flavoured .jscpd.json', async () => {
+      writePackageJson(s.cwd, { name: 'demo' });
+      writeFileSync(join(s.cwd, 'pyproject.toml'), '[project]\nname = "x"\n');
+      await runInit(s.cwd, { prompter: makeAutoPrompter(false), language: 'python' });
+      const jscpd = readFileSync(join(s.cwd, '.jscpd.json'), 'utf8');
+      expect(jscpd).toContain('__pycache__');
+      expect(jscpd).not.toContain('*.test.ts');
+    });
+
+    it('init python does not scaffold a ruff.toml when pyproject already configures ruff', async () => {
+      writePackageJson(s.cwd, { name: 'demo' });
+      writeFileSync(join(s.cwd, 'pyproject.toml'), '[tool.ruff]\nline-length = 88\n');
+      const result = await runInit(s.cwd, { prompter: makeAutoPrompter(false), language: 'python' });
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(join(s.cwd, 'ruff.toml'))).toBe(false);
+    });
+
+    it('init python notes deptry has no config file when pyproject is missing', async () => {
+      writePackageJson(s.cwd, { name: 'demo' });
+      const result = await runInit(s.cwd, { prompter: makeAutoPrompter(false), language: 'python' });
+      expect(result.stdout).toContain('deptry has no config file');
+    });
+
+    it('init python prints both pip and node install guidance for missing tools', async () => {
+      writePackageJson(s.cwd, { name: 'demo' });
+      const original = process.env.PATH;
+      process.env.PATH = '';
+      try {
+        const result = await runInit(s.cwd, {
+          prompter: makeAutoPrompter(false),
+          language: 'python',
+        });
+        expect(result.stdout).toContain('To install missing tools, run:');
+        expect(result.stdout).toContain('pip install ruff deptry');
+        expect(result.stdout).toContain('npm install --save-dev jscpd');
+      } finally {
+        process.env.PATH = original;
+      }
+    });
+
+    it('init python does not add habit-hooks/ci npm scripts even with --yes', async () => {
+      writePackageJson(s.cwd, { name: 'demo', scripts: { lint: 'ruff check .' } });
+      writeFileSync(join(s.cwd, 'pyproject.toml'), '[project]\nname = "x"\n');
+      const result = await runInit(s.cwd, { prompter: makeAutoPrompter(true), language: 'python' });
+      expect(result.exitCode).toBe(0);
+      const scripts = readScripts(s.cwd);
+      expect(scripts?.['habit-hooks']).toBeUndefined();
+      expect(scripts?.ci).toBeUndefined();
+    });
+
+    it('init python installs a hook invoking habit-hooks directly (no npm run)', async () => {
+      writePackageJson(s.cwd, { name: 'demo' });
+      writeFileSync(join(s.cwd, 'pyproject.toml'), '[project]\nname = "x"\n');
+      mkdirSync(join(s.cwd, '.git', 'hooks'), { recursive: true });
+      await runInit(s.cwd, { prompter: makeAutoPrompter(true), language: 'python' });
+      const body = readFileSync(join(s.cwd, '.git', 'hooks', 'pre-commit'), 'utf8');
+      expect(body).toContain('habit-hooks');
+      expect(body).not.toContain('run habit-hooks');
+    });
+
+    it('init python emits a python-flavoured agent snippet', async () => {
+      writePackageJson(s.cwd, { name: 'demo' });
+      writeFileSync(join(s.cwd, 'pyproject.toml'), '[project]\nname = "x"\n');
+      const result = await runInit(s.cwd, { prompter: makeAutoPrompter(false), language: 'python' });
+      expect(result.stdout).toContain('ruff, deptry, jscpd');
+      expect(result.stdout).not.toContain('npm run ci');
     });
 
     it('init typescript scaffolds tool configs as before', async () => {

@@ -1,6 +1,7 @@
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { detectPackageManager, runScriptCommand } from './install-commands.js';
+import type { Language } from '../../config/schema.js';
 
 export type HookAction = 'installed' | 'conflict' | 'no-git' | 'kept';
 
@@ -9,9 +10,13 @@ export interface HookResult {
   path?: string;
 }
 
-function hookBodyFor(cwd: string): string {
-  const command = runScriptCommand(detectPackageManager(cwd), 'habit-hooks');
-  return `#!/usr/bin/env sh\n${command}\n`;
+function hookCommandFor(cwd: string, language: Language): string {
+  if (language === 'python') return 'habit-hooks';
+  return runScriptCommand(detectPackageManager(cwd), 'habit-hooks');
+}
+
+function hookBodyFor(cwd: string, language: Language): string {
+  return `#!/usr/bin/env sh\n${hookCommandFor(cwd, language)}\n`;
 }
 
 function dependsOnHusky(cwd: string): boolean {
@@ -37,7 +42,7 @@ function writeHook(path: string, body: string): HookResult {
 }
 
 function bodyMatches(content: string): boolean {
-  return content.includes(' run habit-hooks');
+  return /(^|\s)habit-hooks(\s|$)/m.test(content);
 }
 
 function installAt(path: string, body: string): HookResult {
@@ -49,8 +54,8 @@ function installAt(path: string, body: string): HookResult {
   return writeHook(path, body);
 }
 
-export function installPreCommitHook(cwd: string): HookResult {
-  const body = hookBodyFor(cwd);
+export function installPreCommitHook(cwd: string, language: Language): HookResult {
+  const body = hookBodyFor(cwd, language);
   if (dependsOnHusky(cwd)) return installAt(huskyHookPath(cwd), body);
   if (!existsSync(join(cwd, '.git'))) return { action: 'no-git' };
   return installAt(nativeHookPath(cwd), body);
