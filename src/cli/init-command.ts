@@ -8,6 +8,7 @@ interface InitFlags {
   yes?: boolean;
   defaults?: boolean;
   dryRun?: boolean;
+  acceptRecommendations?: boolean;
 }
 
 const SUPPORTED_LANGUAGES: Language[] = ['typescript', 'python'];
@@ -31,10 +32,19 @@ function rejectLanguage(language: string): void {
   });
 }
 
+function initOptions(prompter: Prompter, language: Language | undefined, flags: InitFlags) {
+  return {
+    prompter,
+    dryRun: flags.dryRun === true,
+    language,
+    acceptRecommendations: flags.acceptRecommendations === true,
+  };
+}
+
 async function execute(language: Language | undefined, flags: InitFlags): Promise<void> {
   const prompter = pickPrompter(flags);
   try {
-    emit(await runInit(process.cwd(), { prompter, dryRun: flags.dryRun === true, language }));
+    emit(await runInit(process.cwd(), initOptions(prompter, language, flags)));
   } finally {
     prompter.close();
   }
@@ -48,6 +58,9 @@ async function handleInit(language: string | undefined, flags: InitFlags): Promi
   await execute(language, flags);
 }
 
+const ACCEPT_DESCRIPTION =
+  'install missing tools and apply recommended settings to habit-hooks-owned configs';
+
 export function registerInitCommand(program: Command): void {
   program
     .command('init [language]')
@@ -55,5 +68,6 @@ export function registerInitCommand(program: Command): void {
     .option('--yes', 'accept every prompt (non-interactive)')
     .option('--defaults', 'take the default answer for every prompt (non-interactive)')
     .option('--dry-run', 'show what would be written without writing')
+    .option('--accept-recommendations', ACCEPT_DESCRIPTION)
     .action(handleInit);
 }

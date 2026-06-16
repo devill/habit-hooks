@@ -17,11 +17,15 @@ import {
   type Lines,
 } from './reporters.js';
 import type { Prompter } from './prompts.js';
+import { applyRecommendations } from './apply-recommendations.js';
+import { runCommandWithShell, type CommandRunner } from './command-runner.js';
 
 interface InitOptions {
   prompter: Prompter;
   dryRun?: boolean;
   language?: Language;
+  acceptRecommendations?: boolean;
+  runCommand?: CommandRunner;
 }
 
 interface InitResult {
@@ -80,9 +84,15 @@ async function maybeInstallSkill(ctx: Ctx, prompter: Prompter): Promise<void> {
 }
 
 function printCompletionReport(ctx: Ctx): void {
-  const tools = toolsForLanguage(ctx.language);
-  const matrix = detectToolStates(ctx.cwd);
-  ctx.lines.out.push(completionReport({ cwd: ctx.cwd, language: ctx.language, tools, matrix }));
+  ctx.lines.out.push(
+    completionReport({
+      cwd: ctx.cwd,
+      language: ctx.language,
+      tools: toolsForLanguage(ctx.language),
+      matrix: detectToolStates(ctx.cwd),
+      advertiseAcceptFlag: !ctx.acceptRecommendations,
+    }),
+  );
 }
 
 function printSnippet(ctx: Ctx): void {
@@ -111,11 +121,17 @@ function reportOnly(cwd: string): InitResult {
   return { stdout: detectionReport(cwd), stderr: '', exitCode: 0 };
 }
 
-async function scaffold(ctx: Ctx, prompter: Prompter): Promise<InitResult> {
+async function maybeApplyRecommendations(ctx: Ctx, runCommand: CommandRunner): Promise<void> {
+  if (!ctx.acceptRecommendations || ctx.dryRun) return;
+  await applyRecommendations(ctx, runCommand);
+}
+
+async function scaffold(ctx: Ctx, prompter: Prompter, runCommand: CommandRunner): Promise<InitResult> {
   runToolSteps(ctx);
   writeConfigStep(ctx);
   writeBaselineStep(ctx);
   await runPrompts(ctx, prompter);
+  await maybeApplyRecommendations(ctx, runCommand);
   printCompletionReport(ctx);
   printSnippet(ctx);
   return toResult(ctx.lines);
@@ -128,6 +144,7 @@ export async function runInit(cwd: string, opts: InitOptions): Promise<InitResul
     lines: { out: [], err: [], exit: 0 },
     dryRun: opts.dryRun === true,
     language: opts.language,
+    acceptRecommendations: opts.acceptRecommendations === true,
   };
-  return scaffold(ctx, opts.prompter);
+  return scaffold(ctx, opts.prompter, opts.runCommand ?? runCommandWithShell);
 }

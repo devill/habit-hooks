@@ -15,7 +15,12 @@ interface ReportInput {
   language: Language;
   tools: ToolName[];
   matrix: Record<ToolName, ToolState>;
+  advertiseAcceptFlag?: boolean;
 }
+
+const ADVERT_LINE =
+  'To install missing tools and apply recommended settings automatically, ' +
+  're-run with `--accept-recommendations`.\n';
 
 interface ReportItem {
   heading: string;
@@ -93,10 +98,25 @@ function withAdvisory(body: string, advisory: string | null): string {
   return `${body}${advisory}\n`;
 }
 
+function jscpdKeysMissing(input: ReportInput): boolean {
+  if (!input.tools.includes('jscpd')) return false;
+  return JSCPD_RECOMMENDATION.missingKeys(input.cwd).length > 0;
+}
+
+function hasAutoApplicableWork(input: ReportInput): boolean {
+  const toolMissing = input.tools.some((t) => !input.matrix[t].installed);
+  return toolMissing || jscpdKeysMissing(input);
+}
+
+function withAdvert(body: string, input: ReportInput): string {
+  if (input.advertiseAcceptFlag !== true || !hasAutoApplicableWork(input)) return body;
+  return `${body}${ADVERT_LINE}`;
+}
+
 export function completionReport(input: ReportInput): string {
   const items = hardGapItems(input);
   const advisory = eslintAdvisoryLine(input);
-  if (items.length === 0) return withAdvisory(`\n${COMPLETE_LINE}`, advisory);
+  if (items.length === 0) return withAdvert(withAdvisory(`\n${COMPLETE_LINE}`, advisory), input);
   const gaps = `\n${INCOMPLETE_HEADER}${items.map(renderItem).join('\n')}\n`;
-  return withAdvisory(gaps, advisory);
+  return withAdvert(withAdvisory(gaps, advisory), input);
 }

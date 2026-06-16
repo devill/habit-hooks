@@ -9,6 +9,7 @@ export interface Ctx {
   lines: Lines;
   dryRun: boolean;
   language: Language;
+  acceptRecommendations: boolean;
 }
 
 export function noteScaffold(ctx: Ctx, result: ScaffoldResult, label: string): void {
