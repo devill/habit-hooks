@@ -158,15 +158,11 @@ async function detect(ctx: RunContext, rules: Rule[]): Promise<{ violations: Vio
   return { violations: issues.map(issueToViolation), notices };
 }
 
-function allowedFilesBySmell(rules: Rule[], ctx: RunContext): Map<string, Set<string>> {
-  return new Map(rules.map((rule) => [rule.id, new Set(resolveFilesForRule(rule, ctx))] as const));
-}
-
 // Keep a violation when its smell has no rule (uncoached), or its file is not a
 // discovered source file (a project-level artifact like pyproject.toml reported
 // by a whole-project sensor), or its file is in the rule's resolved set.
 function filterViolations(violations: Violation[], rules: Rule[], ctx: RunContext): Violation[] {
-  const allowed = allowedFilesBySmell(rules, ctx);
+  const allowed = new Map(rules.map((rule) => [rule.id, new Set(resolveFilesForRule(rule, ctx))] as const));
   const sourceFiles = new Set(ctx.files);
   return violations.filter((v) => {
     const set = allowed.get(v.ruleId);
