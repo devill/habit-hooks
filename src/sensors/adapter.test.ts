@@ -95,4 +95,11 @@ describe('extractIssues — robustness', () => {
     expect(issues[0]?.smell).toBe('C901');
     expect('line' in (issues[0]?.details ?? {})).toBe(false);
   });
+
+  it('passes through a smell that collides with an Object.prototype key', () => {
+    // A malicious tool config can emit code: 'constructor'; the map lookup must
+    // not return the inherited Object.prototype member.
+    const issues = extractIssues([{ code: 'constructor', filename: '/p/x.py', message: 'm' }], RUFF_SPEC);
+    expect(issues[0]?.smell).toBe('constructor');
+  });
 });

@@ -49,10 +49,15 @@ function buildDetails(spec: AdapterSpec, issue: Json, group: Json): { rawSmell: 
   return { rawSmell, details };
 }
 
+function mapSmell(map: Record<string, string> | undefined, rawSmell: string): string {
+  if (map !== undefined && Object.hasOwn(map, rawSmell)) return map[rawSmell];
+  return rawSmell;
+}
+
 function extractOne(spec: AdapterSpec, issue: Json, group: Json): Issue {
   const { rawSmell, details } = buildDetails(spec, issue, group);
   details.source = `${spec.id}:${rawSmell}`;
-  return { smell: spec.map?.[rawSmell] ?? rawSmell, details };
+  return { smell: mapSmell(spec.map, rawSmell), details };
 }
 
 export function extractIssues(root: Json, spec: AdapterSpec): Issue[] {

@@ -33,7 +33,7 @@ interface IssueContext {
 }
 
 function knipSmell(issueType: string): string {
-  return KNIP_SMELL_MAP[issueType] ?? issueType;
+  return Object.hasOwn(KNIP_SMELL_MAP, issueType) ? KNIP_SMELL_MAP[issueType] : issueType;
 }
 
 interface BuildViolationArgs {
