@@ -18,6 +18,7 @@ export default tseslint.config(
       'max-lines-per-function': ['error', { max: 12, skipBlankLines: false, skipComments: false, IIFEs: true }],
       'max-params': ['error', { max: 3 }],
       'complexity': ['error', { max: 10 }],
+      'max-depth': ['error', { max: 4 }],
       'max-lines': ['error', { max: 200, skipBlankLines: false, skipComments: false }],
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-unused-vars': 'off',
