@@ -332,7 +332,6 @@ phases (PR #13). Each call below is an _agent decision_.
   gated out, so a config that disables an input can't crash the run. The
   catalogue entry lives in `customRules` (source `custom`) to stay under the
   200-line cap.
-
 - **Smell knowledge lives only in config; the sensor layer consumes it.** _(agent
   decision, #24)_ All tool/smell mappings moved to `src/config/tool-smells.ts`:
   the eslint raw→smell map, eslint/knip/jscpd/comment produces, and the ruff +
@@ -346,3 +345,14 @@ phases (PR #13). Each call below is an _agent decision_.
   (catalogue) + `src/cli/init/` (the scaffolded eslint config) — proved live by
   the `deep-nesting` smell (#26). Realizes the locked "spec from config" via
   config-derived constants rather than per-call DI, keeping the refactor low-risk.
+
+- **`deep-nesting` (TS, ESLint `max-depth`) is #24's live demonstrator.** _(agent
+  decision, #26)_ Added the smell touching only `src/config/catalogue.ts` (the
+  rule, `source: eslint`, `sourceRuleId: max-depth`, severity **enforced** to
+  mirror `high-complexity`) and `src/cli/init/templates/eslint-config.ts` (the
+  scaffolded `max-depth: 4`). The eslint raw→smell translation and the preset's
+  produces **auto-derived** from the catalogue with zero edits to the runner,
+  sensors, checks, or rules registry — the proof that #24 worked. Python
+  `deep-nesting` (ruff `PLR1702`) is **deferred**: it is preview/unstable, and we
+  do not opt the default preset into ruff `--preview`. Reversible — Python can be
+  enabled once PLR1702 stabilises or via an AST detector.

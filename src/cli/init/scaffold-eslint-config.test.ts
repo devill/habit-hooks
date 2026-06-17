@@ -34,6 +34,8 @@ describe('scaffoldEslintConfig', () => {
     expect(contents).toContain('max: 3');
     expect(contents).toContain("'complexity'");
     expect(contents).toContain('max: 10');
+    expect(contents).toContain("'max-depth'");
+    expect(contents).toContain('max: 4');
     expect(contents).toContain("'max-lines'");
     expect(contents).toContain('max: 200');
   });
