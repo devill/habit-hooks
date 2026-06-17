@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { gitExec } from '../git/exec.js';
+import { gitExec, GitError } from '../git/exec.js';
 import { createSnoozeIndex } from './snooze-index.js';
 import type { BaselineFile } from './store.js';
 
@@ -60,6 +60,37 @@ describe('createSnoozeIndex', () => {
     });
     const index = createSnoozeIndex('/repo');
     expect(index.isSnoozed('/repo/old.ts', baselineWith({ 'old.ts': 'abc123' }))).toBe(false);
+  });
+
+  it('treats both sides of a copy as dirty', () => {
+    mockGit.mockImplementation((args) => {
+      if (args[0] === 'log') return 'abc123\n';
+      return 'C  copy.ts\0source.ts\0';
+    });
+    const index = createSnoozeIndex('/repo');
+    expect(index.isSnoozed('/repo/source.ts', baselineWith({ 'source.ts': 'abc123' }))).toBe(false);
+  });
+
+  // Porcelain v1 only puts R/C in the X (first) column. A record whose X column is
+  // not R/C but whose Y column is (e.g. ' C') must NOT consume the next record as a
+  // rename/copy origin — that next record is an independent file's status. The old
+  // `record.slice(0, 2)` check matched the Y column and mis-paired the records.
+  it('does not consume the following record when only the Y column is R/C', () => {
+    mockGit.mockImplementation((args) => {
+      if (args[0] === 'log') return 'abc123\n';
+      return ' C first.ts\0 M second.ts\0';
+    });
+    const index = createSnoozeIndex('/repo');
+    expect(index.isSnoozed('/repo/second.ts', baselineWith({ 'second.ts': 'abc123' }))).toBe(false);
+  });
+
+  it('treats every file as dirty (not snoozed) when git status fails', () => {
+    mockGit.mockImplementation((args) => {
+      if (args[0] === 'log') return 'abc123\n';
+      throw new GitError('git status failed');
+    });
+    const index = createSnoozeIndex('/repo');
+    expect(index.isSnoozed('/repo/a.ts', baselineWith({ 'a.ts': 'abc123' }))).toBe(false);
   });
 
   it('is not snoozed when the entry hash no longer matches HEAD', () => {

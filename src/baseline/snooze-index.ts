@@ -13,12 +13,14 @@ export interface SnoozeIndex {
 
 // `git status --porcelain -z` record: `XY <path>`, NUL-separated, no path
 // quoting. A rename/copy record is followed by an extra field for the original
-// path; both sides count as dirty. Returns the index of the last field consumed.
+// path; both sides count as dirty. Only the X (index) column ever carries R/C in
+// porcelain v1, so the follow-up-field check inspects record[0] alone. Returns
+// the index of the last field consumed.
 function parseDirtyRecord(records: string[], i: number, dirty: Set<string>): number {
   const record = records[i];
   if (record.length < 4) return i;
   dirty.add(record.slice(3));
-  if (!/[RC]/.test(record.slice(0, 2))) return i;
+  if (!/[RC]/.test(record[0])) return i;
   if (records[i + 1]) dirty.add(records[i + 1]);
   return i + 1;
 }

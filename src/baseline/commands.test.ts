@@ -29,9 +29,12 @@ function writeConfig(cwd: string): void {
 
 describe('baseline generate', () => {
   let repo: GitRepo;
+  let detDir: string | undefined;
 
   afterEach(() => {
     if (repo) rmSync(repo.cwd, { recursive: true, force: true });
+    if (detDir) rmSync(detDir, { recursive: true, force: true });
+    detDir = undefined;
   });
 
   it('populates entries for currently-violating files', async () => {
@@ -50,17 +53,18 @@ describe('baseline generate', () => {
   });
 
   it('serializes a fixed violation set byte-identically regardless of entry order', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'hh-baseline-det-'));
+    // Registered with afterEach (not cleaned inline) so a failed assertion leaves
+    // the file on disk for inspection of the byte diff.
+    detDir = mkdtempSync(join(tmpdir(), 'hh-baseline-det-'));
     const hash = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
     const entriesIn = (order: string[]) =>
       Object.fromEntries(order.map((file) => [file, { snoozedAtCommit: hash }]));
 
-    saveBaseline(dir, { version: 2, files: entriesIn(['z-bad.ts', 'a-bad.ts', 'm-bad.ts']) });
-    const first = readFileSync(join(dir, BASELINE_FILENAME), 'utf8');
-    saveBaseline(dir, { version: 2, files: entriesIn(['m-bad.ts', 'z-bad.ts', 'a-bad.ts']) });
-    const second = readFileSync(join(dir, BASELINE_FILENAME), 'utf8');
+    saveBaseline(detDir, { version: 2, files: entriesIn(['z-bad.ts', 'a-bad.ts', 'm-bad.ts']) });
+    const first = readFileSync(join(detDir, BASELINE_FILENAME), 'utf8');
+    saveBaseline(detDir, { version: 2, files: entriesIn(['m-bad.ts', 'z-bad.ts', 'a-bad.ts']) });
+    const second = readFileSync(join(detDir, BASELINE_FILENAME), 'utf8');
 
-    rmSync(dir, { recursive: true, force: true });
     expect(second).toBe(first);
   });
 
