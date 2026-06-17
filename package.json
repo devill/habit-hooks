@@ -1,6 +1,6 @@
 {
   "name": "habit-hooks",
-  "version": "0.1.0-beta.0",
+  "version": "0.2.0",
   "type": "module",
   "packageManager": "pnpm@11.3.0",
   "engines": {

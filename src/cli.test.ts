@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createGitRepo, type GitRepo } from '../tests/helpers/git.js';
@@ -26,9 +26,12 @@ describe('cli', () => {
   }, 60_000);
 
   it('prints version with --version', () => {
+    const { version } = JSON.parse(
+      readFileSync(join(repoRoot, 'package.json'), 'utf8'),
+    ) as { version: string };
     const result = spawnSync('node', [cliPath, '--version'], { encoding: 'utf8' });
     expect(result.status).toBe(0);
-    expect(result.stdout.trim()).toBe('habit-hooks v0.1.0-beta.0');
+    expect(result.stdout.trim()).toBe(`habit-hooks v${version}`);
   });
 
   describe('malformed config', () => {
