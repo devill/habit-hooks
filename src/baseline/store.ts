@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { safeWriteFileSync } from '../safe-fs.js';
 
 export const BASELINE_FILENAME = '.habit-hooks-baseline.json';
 export const BASELINE_VERSION = 2;
@@ -131,7 +132,7 @@ export function saveBaseline(cwd: string, baseline: BaselineFile): void {
     files: sortedEntries(baseline.files),
   };
   const serialized = `${JSON.stringify(ordered, null, 2)}\n`;
-  writeFileSync(baselinePath(cwd), serialized);
+  safeWriteFileSync(baselinePath(cwd), serialized);
 }
 
 export function baselineExists(cwd: string): boolean {

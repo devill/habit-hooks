@@ -1,7 +1,8 @@
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { safeCopyFileSync } from '../../safe-fs.js';
 
 const SKILL_NAMES = ['habit-hooks-review', 'habit-hooks-prompting'] as const;
 const SKILL_FILE = 'SKILL.md';
@@ -43,7 +44,7 @@ function installSkill(name: string): SkillResult {
   const target = targetPath(name);
   if (existsSync(target)) return { name, action: 'conflict', source, target };
   mkdirSync(targetDir(name), { recursive: true });
-  copyFileSync(source, target);
+  safeCopyFileSync(source, target);
   return { name, action: 'installed', source, target };
 }
 

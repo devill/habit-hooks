@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { safeWriteFileSync } from '../../safe-fs.js';
 import { detectToolStates, toolsForLanguage, type ToolName, type ToolState } from './detect.js';
 import { installCommandsFor } from './install-commands.js';
 import { describeKey, JSCPD_RECOMMENDATION } from './recommendations.js';
@@ -59,7 +60,7 @@ function mergeJscpdConfig(ctx: Ctx): void {
   const missing = JSCPD_RECOMMENDATION.missingKeys(ctx.cwd);
   const config = readJscpd(path);
   if (missing.length === 0 || config === null) return;
-  writeFileSync(path, `${JSON.stringify(withAddedKeys(config, missing), null, 2)}\n`);
+  safeWriteFileSync(path, `${JSON.stringify(withAddedKeys(config, missing), null, 2)}\n`);
   ctx.lines.out.push(`  Updated .jscpd.json (added: ${missing.join(', ')})\n`);
 }
 

@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { safeWriteFileSync } from '../../safe-fs.js';
 
 const HABIT_HOOKS_SCRIPT = 'habit-hooks';
 const HABIT_HOOKS_COMMAND = 'habit-hooks';
@@ -25,7 +26,7 @@ function readPackageJson(cwd: string): { path: string; data: PackageJson } | nul
 }
 
 function writePackageJson(path: string, data: PackageJson): void {
-  writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
+  safeWriteFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
 }
 
 function ensureScripts(data: PackageJson): Record<string, string> {

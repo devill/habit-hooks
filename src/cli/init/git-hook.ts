@@ -1,5 +1,6 @@
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { safeWriteFileSync } from '../../safe-fs.js';
 import { detectPackageManager, runScriptCommand } from './install-commands.js';
 import type { Language } from '../../config/schema.js';
 
@@ -36,8 +37,7 @@ function nativeHookPath(cwd: string): string {
 }
 
 function writeHook(path: string, body: string): HookResult {
-  writeFileSync(path, body);
-  chmodSync(path, 0o755);
+  safeWriteFileSync(path, body, { mode: 0o755 });
   return { action: 'installed', path };
 }
 

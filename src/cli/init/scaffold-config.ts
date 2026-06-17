@@ -1,5 +1,6 @@
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { safeWriteFileSync } from '../../safe-fs.js';
 import type { Language } from '../../config/schema.js';
 
 const CONFIG_FILENAMES = [
@@ -68,7 +69,7 @@ export function scaffoldFile(args: ScaffoldFileArgs): ScaffoldResult {
   const existing = findExisting(cwd, candidates);
   if (existing !== null) return { path: existing, created: false };
   const path = join(cwd, defaultName);
-  writeFileSync(path, template);
+  safeWriteFileSync(path, template);
   return { path, created: true };
 }
 
