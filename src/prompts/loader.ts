@@ -1,10 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolvePackagedDir } from './packaged-dir.js';
-
-function slugify(ruleId: string): string {
-  return ruleId.replace(/[:/]/g, '-').replace(/@/g, '');
-}
+import { slugify } from './slug.js';
 
 function tryRead(path: string): string | null {
   return existsSync(path) ? readFileSync(path, 'utf8').trimEnd() : null;

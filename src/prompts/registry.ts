@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import type { CoachingPrompt, Severity } from '../types.js';
 import { defaultRules } from '../config/defaults.js';
 import { resolvePackagedDir } from './packaged-dir.js';
+import { slugify } from './slug.js';
 
 interface RuleSeed {
   id: string;
@@ -18,10 +19,6 @@ const supplementalSeeds: RuleSeed[] = [
     severity: 'enforced',
   },
 ];
-
-function slugify(ruleId: string): string {
-  return ruleId.replace(/[:/]/g, '-').replace(/@/g, '');
-}
 
 function buildPrompt(seed: RuleSeed, packagedDir: string): CoachingPrompt {
   return {
