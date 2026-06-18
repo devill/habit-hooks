@@ -8,36 +8,21 @@ import type {
   RuleOverride,
   ScopeConfig,
 } from './schema.js';
+import {
+  fail,
+  isPlainObject,
+  validateOptionalString,
+  validateOptionalStringArray,
+} from './validate-primitives.js';
+import { validateFiles, validateSensors } from './validate-sensors.js';
 
 const SEVERITIES: readonly Severity[] = ['enforced', 'suggested'];
 const SOURCES: readonly RuleSource[] = ['eslint', 'jscpd', 'knip', 'custom'];
 const LANGUAGES = ['typescript', 'python'] as const;
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
-}
-
-function fail(path: string, expected: string): never {
-  throw new Error(`Invalid habit-hooks config: ${path} must be ${expected}`);
-}
-
-function validateOptionalString(value: unknown, path: string): void {
-  if (value === undefined) return;
-  if (typeof value !== 'string') fail(path, 'a string');
-}
-
 function validateOptionalBoolean(value: unknown, path: string): void {
   if (value === undefined) return;
   if (typeof value !== 'boolean') fail(path, 'a boolean');
-}
-
-function validateOptionalStringArray(value: unknown, path: string): void {
-  if (value === undefined) return;
-  if (!isStringArray(value)) fail(path, 'an array of strings');
 }
 
 function validateSeverity(value: unknown, path: string): void {
@@ -142,17 +127,15 @@ interface ValidatedParts {
   scope: ScopeConfig | undefined;
   commentCheck: CommentCheckConfig | undefined;
   needsExtraction: NeedsExtractionConfig | undefined;
+  sensors: HabitHooksConfig['sensors'];
+  files: string[] | undefined;
 }
 
 function assembleConfig(parts: ValidatedParts): HabitHooksConfig {
   const config: HabitHooksConfig = {};
-  if (parts.prompts !== undefined) config.prompts = parts.prompts;
-  if (parts.language !== undefined) config.language = parts.language;
-  if (parts.smells !== undefined) config.smells = parts.smells;
-  if (parts.rules !== undefined) config.rules = parts.rules;
-  if (parts.scope !== undefined) config.scope = parts.scope;
-  if (parts.commentCheck !== undefined) config.commentCheck = parts.commentCheck;
-  if (parts.needsExtraction !== undefined) config.needsExtraction = parts.needsExtraction;
+  for (const [key, value] of Object.entries(parts)) {
+    if (value !== undefined) (config as Record<string, unknown>)[key] = value;
+  }
   return config;
 }
 
@@ -163,8 +146,16 @@ function validateParts(value: Record<string, unknown>): ValidatedParts {
     smells: validateEntryMap(value.smells, 'smells'),
     rules: validateEntryMap(value.rules, 'rules'),
     scope: validateScope(value.scope),
+    ...validateRemainingParts(value),
+  };
+}
+
+function validateRemainingParts(value: Record<string, unknown>) {
+  return {
     commentCheck: validateCommentCheck(value.commentCheck),
     needsExtraction: validateNeedsExtraction(value.needsExtraction),
+    sensors: validateSensors(value.sensors),
+    files: validateFiles(value.files),
   };
 }
 

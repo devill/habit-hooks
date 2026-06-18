@@ -134,4 +134,141 @@ describe('loadConfig', () => {
       /commentCheck\.maxBlockChars must be a positive integer/,
     );
   });
+
+  it('round-trips a code-backed (use) sensor spec', async () => {
+    const cfg = { sensors: { ruff: { use: 'ruff' } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(cfg));
+    const loaded = await loadConfig(workDir);
+    expect(loaded.config.sensors?.ruff).toEqual({ use: 'ruff' });
+  });
+
+  it('round-trips a wrapper sensor spec', async () => {
+    const cfg = { sensors: { mypy: { command: 'mypy ${files}', produces: ['type-error'], dependsOn: ['ruff'] } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(cfg));
+    const loaded = await loadConfig(workDir);
+    expect(loaded.config.sensors?.mypy).toEqual({
+      command: 'mypy ${files}',
+      produces: ['type-error'],
+      dependsOn: ['ruff'],
+    });
+  });
+
+  it('round-trips a declarative sensor spec with optional group and map', async () => {
+    const cfg = {
+      sensors: {
+        eslint: {
+          command: 'eslint -f json ${files}',
+          produces: ['lint'],
+          items: 'messages[]',
+          fields: { smell: 'ruleId', line: 'line' },
+          group: '[]',
+          map: { 'no-unused-vars': 'unused-symbol' },
+        },
+      },
+    };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(cfg));
+    const loaded = await loadConfig(workDir);
+    expect(loaded.config.sensors?.eslint).toEqual(cfg.sensors.eslint);
+  });
+
+  it('round-trips the files array', async () => {
+    const cfg = { files: ['src/**/*.ts', 'lib/**/*.ts'] };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(cfg));
+    const loaded = await loadConfig(workDir);
+    expect(loaded.config.files).toEqual(['src/**/*.ts', 'lib/**/*.ts']);
+  });
+
+  it('throws when a use spec also sets command', async () => {
+    const bad = { sensors: { ruff: { use: 'ruff', command: 'ruff ${files}' } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.ruff with 'use' must be the only key \('command' is not allowed\)/,
+    );
+  });
+
+  it('throws when a command spec is missing produces', async () => {
+    const bad = { sensors: { mypy: { command: 'mypy ${files}' } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.mypy\.produces must be a non-empty array of strings/,
+    );
+  });
+
+  it('throws when a command spec has an empty produces', async () => {
+    const bad = { sensors: { mypy: { command: 'mypy ${files}', produces: [] } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.mypy\.produces must be a non-empty array of strings/,
+    );
+  });
+
+  it('throws when a declarative spec has items but no fields', async () => {
+    const bad = { sensors: { x: { command: 'x ${files}', produces: ['s'], items: '[]' } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.x\.fields must be an object of strings/,
+    );
+  });
+
+  it('throws when a wrapper spec also sets items', async () => {
+    const bad = { sensors: { x: { command: 'x ${files}', produces: ['s'], group: '[]' } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.x\.items must be a non-empty string/,
+    );
+  });
+
+  it('throws when a sensor entry is not an object', async () => {
+    const bad = { sensors: { x: 'nope' } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(/sensors\.x must be an object/);
+  });
+
+  it('throws when a sensor entry sets neither use nor command', async () => {
+    const bad = { sensors: { x: { produces: ['s'] } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.x must be set either 'use' or 'command'/,
+    );
+  });
+
+  it('throws when a use spec is an empty string', async () => {
+    const bad = { sensors: { x: { use: '' } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.x\.use must be a non-empty string/,
+    );
+  });
+
+  it('throws when a use spec is not a string', async () => {
+    const bad = { sensors: { x: { use: 5 } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.x\.use must be a non-empty string/,
+    );
+  });
+
+  it('throws when a command spec is an empty string', async () => {
+    const bad = { sensors: { x: { command: '' } } };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.x\.command must be a non-empty string/,
+    );
+  });
+
+  it('throws when a declarative fields value is not a string', async () => {
+    const bad = {
+      sensors: { x: { command: 'x ${files}', produces: ['s'], items: '[]', fields: { smell: 5 } } },
+    };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(
+      /sensors\.x\.fields\.smell must be a string/,
+    );
+  });
+
+  it('throws when files is not a string array', async () => {
+    const bad = { files: 'src/**' };
+    writeFileSync(join(workDir, 'habit-hooks.config.json'), JSON.stringify(bad));
+    await expect(loadConfig(workDir)).rejects.toThrow(/files must be an array of strings/);
+  });
 });

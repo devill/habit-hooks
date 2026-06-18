@@ -39,6 +39,34 @@ export interface NeedsExtractionConfig {
 
 export type Language = 'typescript' | 'python';
 
+// A user-declared sensor (issue #16), discriminated by which key it sets:
+// `use` -> code-backed (a registered built-in factory; produces/dependsOn come
+// from the factory). Otherwise `command` is required; the presence of any
+// adapter key (items/fields/group/map) makes it declarative, else it is a
+// wrapper script that prints bag JSON itself. The three modes are mutually
+// exclusive — validation rejects mixing `use` with command-mode keys.
+export interface UseSensorSpec {
+  use: string;
+}
+
+export interface WrapperSensorSpec {
+  command: string;
+  produces: string[];
+  dependsOn?: string[];
+}
+
+export interface DeclarativeSpec {
+  command: string;
+  produces: string[];
+  items: string;
+  fields: Record<string, string>;
+  group?: string;
+  map?: Record<string, string>;
+  dependsOn?: string[];
+}
+
+export type SensorSpec = UseSensorSpec | WrapperSensorSpec | DeclarativeSpec;
+
 export interface HabitHooksConfig {
   prompts?: string;
   // `init` selects the language; only that language's sensors run. Default: typescript.
@@ -50,6 +78,9 @@ export interface HabitHooksConfig {
   scope?: ScopeConfig;
   commentCheck?: CommentCheckConfig;
   needsExtraction?: NeedsExtractionConfig;
+  // User-declared sensors keyed by sensor id; `files` overrides discovery globs.
+  sensors?: Record<string, SensorSpec>;
+  files?: string[];
 }
 
 export function isRuleDefinition(
