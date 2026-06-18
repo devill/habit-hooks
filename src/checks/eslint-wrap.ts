@@ -60,7 +60,7 @@ function isConfigError(result: ShellResult, parsed: EslintFileResult[] | null): 
 }
 
 function messageToViolation(filePath: string, m: EslintMessage & { ruleId: string }): Violation {
-  const smell = ESLINT_SMELL_MAP[m.ruleId] ?? m.ruleId;
+  const smell = Object.hasOwn(ESLINT_SMELL_MAP, m.ruleId) ? ESLINT_SMELL_MAP[m.ruleId] : m.ruleId;
   const title = lookupPrompt(smell)?.title ?? m.ruleId;
   const message = `${title}: ${m.message}`;
   const source = `eslint:${m.ruleId}`;

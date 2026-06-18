@@ -95,4 +95,12 @@ describe('extractIssues — robustness', () => {
     expect(issues[0]?.smell).toBe('C901');
     expect('line' in (issues[0]?.details ?? {})).toBe(false);
   });
+
+  it('passes through a smell that collides with an Object.prototype key', () => {
+    // A smell id like 'constructor' is an inherited Object.prototype key, so a
+    // plain `map[id]` lookup returns the constructor function instead of missing.
+    // The lookup must treat only own keys as mapped and pass everything else through.
+    const issues = extractIssues([{ code: 'constructor', filename: '/p/x.py', message: 'm' }], RUFF_SPEC);
+    expect(issues[0]?.smell).toBe('constructor');
+  });
 });
