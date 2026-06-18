@@ -12,7 +12,7 @@ import {
 // presence of any adapter key (items/fields/group/map) makes it declarative,
 // else a wrapper script. The modes are mutually exclusive.
 
-const ADAPTER_KEYS = ['items', 'fields', 'group', 'map'] as const;
+export const ADAPTER_KEYS = ['items', 'fields', 'group', 'map'] as const;
 const USE_FORBIDDEN_KEYS = ['command', 'produces', 'dependsOn', ...ADAPTER_KEYS] as const;
 
 function validateNonEmptyString(value: unknown, path: string): void {

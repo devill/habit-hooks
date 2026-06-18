@@ -75,13 +75,13 @@ export interface DeclarativeSensorSpec extends AdapterSpec {
 
 // Split the command on whitespace and expand the `${files}` token into the
 // scoped file list (the preset commands are unquoted, so a simple split suffices).
-function buildArgv(command: string, files: string[]): { bin: string; args: string[] } {
+export function buildArgv(command: string, files: string[]): { bin: string; args: string[] } {
   const tokens = command.split(/\s+/).filter((token) => token.length > 0);
   const expanded = tokens.flatMap((token) => (token === '${files}' ? files : [token]));
   return { bin: expanded[0] ?? '', args: expanded.slice(1) };
 }
 
-function parseJson(stdout: string): Json {
+export function parseJson(stdout: string): Json {
   const trimmed = stdout.trim();
   if (trimmed.length === 0) return null;
   try {

@@ -70,6 +70,12 @@ const DEFAULT_SENSOR_IDS: Record<string, string[]> = {
   python: ['ruff', 'jscpd', 'deptry', 'line-count', 'needs-extraction'],
 };
 
+// The single lookup into the private registry: build-sensors.ts resolves a
+// `use` reference through this so the map itself stays encapsulated.
+export function sensorFactory(id: string): SensorFactory | undefined {
+  return registry.get(id);
+}
+
 export function defaultSensorIds(language: string): string[] {
   return DEFAULT_SENSOR_IDS[language] ?? [];
 }
