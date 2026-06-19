@@ -333,7 +333,7 @@ describe('runInit', () => {
       const result = await runInit(s.cwd, { prompter: makeAutoPrompter(false), language: 'python' });
       expect(result.exitCode).toBe(0);
       expect(readFileSync(join(s.cwd, 'habit-hooks.config.js'), 'utf8')).toContain(
-        "language: 'python'",
+        '"language": "python"',
       );
       expect(existsSync(join(s.cwd, 'ruff.toml'))).toBe(true);
       expect(existsSync(join(s.cwd, '.jscpd.json'))).toBe(true);
@@ -420,7 +420,7 @@ describe('runInit', () => {
       expect(existsSync(join(s.cwd, 'knip.json'))).toBe(true);
       expect(existsSync(join(s.cwd, '.jscpd.json'))).toBe(true);
       expect(readFileSync(join(s.cwd, 'habit-hooks.config.js'), 'utf8')).toContain(
-        "language: 'typescript'",
+        '"language": "typescript"',
       );
     });
   });

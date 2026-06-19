@@ -1,6 +1,7 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Language } from '../../config/schema.js';
+import { defaultSensorsFor } from '../../sensors/registry.js';
 
 const CONFIG_FILENAMES = [
   'habit-hooks.config.ts',
@@ -33,14 +34,12 @@ export function detectLanguage(cwd: string): Language {
 }
 
 function configTemplate(language: Language): string {
-  return `export default {
-  language: '${language}',
-  scope: {
-    onlyChangedFiles: true,
-    branchBase: 'main',
-  },
-};
-`;
+  const config = {
+    language,
+    scope: { onlyChangedFiles: true, branchBase: 'main' },
+    sensors: defaultSensorsFor(language),
+  };
+  return `export default ${JSON.stringify(config, null, 2)};\n`;
 }
 
 export interface ScaffoldResult {

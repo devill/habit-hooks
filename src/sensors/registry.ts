@@ -20,6 +20,7 @@ import { DEFAULT_MAX_FILE_LINES, lineCountSensor } from './line-count-sensor.js'
 import { needsExtractionSensor } from './needs-extraction.js';
 import type { Sensor } from './types.js';
 import type { Rule } from '../types.js';
+import type { SensorSpec } from '../config/schema.js';
 
 // The single source of truth for code-backed (built-in) sensors: every preset is
 // a list of ids resolved through this registry, so a sensor is constructed in
@@ -78,6 +79,12 @@ export function sensorFactory(id: string): SensorFactory | undefined {
 
 export function defaultSensorIds(language: string): string[] {
   return DEFAULT_SENSOR_IDS[language] ?? [];
+}
+
+// Derived from defaultSensorIds so the init scaffold and the runtime preset
+// share one source: a new preset id flows into the scaffolded config for free.
+export function defaultSensorsFor(language: string): Record<string, SensorSpec> {
+  return Object.fromEntries(defaultSensorIds(language).map((id) => [id, { use: id }]));
 }
 
 export function buildDefaultSensors(language: string, input: SensorFactoryInput): Sensor[] {
