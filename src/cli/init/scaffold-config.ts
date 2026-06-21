@@ -29,7 +29,7 @@ export function detectLanguageWithReason(cwd: string): DetectedLanguage {
   return { language: 'typescript', reason: 'no Python manifest found' };
 }
 
-export function detectLanguage(cwd: string): Language {
+function detectLanguage(cwd: string): Language {
   return detectLanguageWithReason(cwd).language;
 }
 
