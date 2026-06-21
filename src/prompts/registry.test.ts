@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { listPrompts, lookupPrompt } from './registry.js';
+import { loadGuidance } from './loader.js';
 
 describe('lookupPrompt', () => {
   it('returns a populated CoachingPrompt for a known rule id', () => {
@@ -35,6 +36,15 @@ describe('lookupPrompt', () => {
     expect(prompt, 'missing supplemental prompt parse-error').not.toBeNull();
     expect(existsSync(prompt?.guidancePath ?? '')).toBe(true);
     expect(prompt?.severity).toBe('enforced');
+  });
+
+  it('registers the unused-export prompt and resolves it to the tuned markdown', () => {
+    const prompt = lookupPrompt('unused-export');
+    expect(prompt, 'missing supplemental prompt unused-export').not.toBeNull();
+
+    const guidance = loadGuidance('unused-export');
+    expect(guidance, 'unused-export fell through to uncoached').not.toBeNull();
+    expect(guidance).toContain('Reached only by tests');
   });
 
   it('does not register uncatalogued smells (they fall through to uncoached)', () => {

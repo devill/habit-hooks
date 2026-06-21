@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { hasPackageJsonKey } from '../detect/package-json.js';
 import { TOOL_CONFIG_FILENAMES } from '../detect/tool.js';
 import { emptyOutcome, firstLine, noticesFor, type BinResolution } from '../wrap/notices.js';
-import { isSpawnSkip, parseJsonStdout, skipOutcome, spawnWrapped, type SpawnSkip } from '../wrap/run.js';
+import { isSpawnSkip, parseJsonStdout, skipOutcome, spawnWrapped } from '../wrap/run.js';
 import {
   buildKnipArgs,
   buildKnipProductionArgs,
@@ -12,11 +12,10 @@ import {
   resolveKnipBin,
 } from './knip-resolve.js';
 import { type KnipReport } from './knip-schema.js';
-import { deadCodeViolations, dedupeViolations, reportToViolations } from './knip-merge.js';
-import type { Check, CheckOutcome, Violation } from '../types.js';
+import { combineProductionPass, reportToViolations, type DefaultRun, type KnipPass } from './knip-merge.js';
+import type { Check, CheckOutcome } from '../types.js';
 
-export { buildKnipArgs, buildKnipProductionArgs, consumerKnipMajor, resolveKnipBin };
-export { deadCodeViolations, dedupeViolations };
+export { buildKnipArgs, consumerKnipMajor, resolveKnipBin };
 
 function exitFailureWarning(cwd: string, code: number, stderr: string): string {
   const detail = firstLine(stderr);
@@ -33,30 +32,12 @@ function hasKnipConfig(cwd: string): boolean {
   return hasPackageJsonKey(cwd, 'knip');
 }
 
-export type KnipPass =
-  | { kind: 'skip'; result: SpawnSkip }
-  | { kind: 'fail'; warning: string }
-  | { kind: 'ok'; violations: Violation[] };
-
 async function runKnipPass(resolution: BinResolution, cwd: string, args: string[]): Promise<KnipPass> {
   const result = await spawnWrapped({ tool: 'knip', resolution, cwd, args });
   if (isSpawnSkip(result)) return { kind: 'skip', result };
   const report = parseJsonStdout<KnipReport>(result.stdout, '{');
   if (report === null) return { kind: 'fail', warning: exitFailureWarning(cwd, result.exitCode, result.stderr) };
   return { kind: 'ok', violations: reportToViolations(report, cwd) };
-}
-
-export interface DefaultRun {
-  notices: string[];
-  violations: Violation[];
-}
-
-export function combineProductionPass(base: DefaultRun, pass: KnipPass): CheckOutcome {
-  const { notices, violations } = base;
-  if (pass.kind === 'skip') return { violations, stderr: notices };
-  if (pass.kind === 'fail') return { violations, stderr: [...notices, pass.warning] };
-  const merged = dedupeViolations([...violations, ...deadCodeViolations(pass.violations)]);
-  return { violations: merged, stderr: notices };
 }
 
 async function mergeProductionDeadCode(resolution: BinResolution, cwd: string, base: DefaultRun): Promise<CheckOutcome> {

@@ -3,17 +3,8 @@ import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, sy
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  buildKnipArgs,
-  combineProductionPass,
-  consumerKnipMajor,
-  deadCodeViolations,
-  dedupeViolations,
-  knipWrap,
-  resolveKnipBin,
-  type DefaultRun,
-  type KnipPass,
-} from './knip-wrap.js';
+import { buildKnipArgs, consumerKnipMajor, knipWrap, resolveKnipBin } from './knip-wrap.js';
+import { combineProductionPass, type DefaultRun, type KnipPass } from './knip-merge.js';
 import type { CheckOutcome, Rule, Violation } from '../types.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -501,44 +492,58 @@ describe('knipWrap', () => {
   }, 60_000);
 });
 
-describe('dedupeViolations', () => {
-  const base: Violation = { ruleId: 'unused-export', source: 'knip:exports', file: '/a.ts', line: 3, message: 'foo' };
+function okPass(violations: Violation[]): KnipPass {
+  return { kind: 'ok', violations };
+}
 
-  it('collapses identical violations into one', () => {
-    expect(dedupeViolations([base, { ...base }])).toEqual([base]);
+function emptyBase(): DefaultRun {
+  return { notices: [], violations: [] };
+}
+
+function mergedViolations(base: DefaultRun, productionViolations: Violation[]): Violation[] {
+  return combineProductionPass(base, okPass(productionViolations)).violations;
+}
+
+describe('combineProductionPass dedupe behaviour', () => {
+  const codeFinding: Violation = {
+    ruleId: 'unused-export',
+    source: 'knip:exports',
+    file: '/a.ts',
+    line: 3,
+    message: 'foo',
+  };
+
+  it('collapses a production finding identical to a base violation into one', () => {
+    const base: DefaultRun = { notices: [], violations: [codeFinding] };
+    expect(mergedViolations(base, [{ ...codeFinding }])).toEqual([codeFinding]);
   });
 
-  it('preserves distinct violations', () => {
-    const other: Violation = { ...base, message: 'bar' };
-    expect(dedupeViolations([base, other])).toEqual([base, other]);
-  });
-
-  it('keeps the first occurrence and preserves order', () => {
-    const a: Violation = { ...base, message: 'a' };
-    const b: Violation = { ...base, message: 'b' };
-    expect(dedupeViolations([a, b, { ...a }])).toEqual([a, b]);
+  it('preserves distinct findings differing only by message', () => {
+    const other: Violation = { ...codeFinding, message: 'bar' };
+    expect(mergedViolations(emptyBase(), [codeFinding, other])).toEqual([codeFinding, other]);
   });
 
   it('treats a differing column as distinct', () => {
-    const noCol: Violation = { ...base };
-    const withCol: Violation = { ...base, column: 5 };
-    expect(dedupeViolations([noCol, withCol])).toEqual([noCol, withCol]);
+    const noCol: Violation = { ...codeFinding };
+    const withCol: Violation = { ...codeFinding, column: 5 };
+    expect(mergedViolations(emptyBase(), [noCol, withCol])).toEqual([noCol, withCol]);
   });
 });
 
-describe('deadCodeViolations', () => {
+describe('combineProductionPass dead-code filtering', () => {
   function violation(source: string): Violation {
     return { ruleId: 'r', source, file: '/a.ts', line: 1, message: 'm' };
   }
 
   it('drops dependency findings from a production pass', () => {
-    expect(deadCodeViolations([violation('knip:dependencies'), violation('knip:devDependencies')])).toEqual([]);
+    const deps = [violation('knip:dependencies'), violation('knip:devDependencies')];
+    expect(mergedViolations(emptyBase(), deps)).toEqual([]);
   });
 
   it('keeps export and file dead-code findings', () => {
     const exportV = violation('knip:exports');
     const fileV = violation('knip:files');
-    expect(deadCodeViolations([exportV, fileV])).toEqual([exportV, fileV]);
+    expect(mergedViolations(emptyBase(), [exportV, fileV])).toEqual([exportV, fileV]);
   });
 });
 

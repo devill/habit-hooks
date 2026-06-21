@@ -2,6 +2,23 @@
 
 ## Gotchas
 
+### knip runs a gated second pass in production mode (issue #59)
+
+`knipWrap` runs knip twice when — and only when — the consumer's knip
+config marks production patterns with a trailing `!` (detected by
+`knipConfigMarksProduction` in `knip-resolve.ts`). The default pass is
+authoritative for everything (incl. unused devDependencies); the
+`--production` pass contributes only dead-code findings
+(`PRODUCTION_PASS_SOURCES` in `knip-merge.ts`), merged + deduped. This
+catches code reached only by tests without losing devDep detection.
+Gotchas: `--production` analyses NOTHING unless `!` is on BOTH `entry`
+and `project` (a no-`!` config under `--production` silently reports
+zero — so we never pass it there). Test files must be listed as
+unmarked (non-production) `entry`, else knip 5 + a vitest config falsely
+reports them as unused files. The merge intentionally keeps `knip:files`
+from the production pass, so a wholly test-only production file can
+surface as an unused file — that's the feature, not a bug.
+
 ### JSDoc nodes are not MultiLineCommentTrivia in ts-morph
 
 `/** ... */` blocks are `SyntaxKind.JSDoc` (321) when attached to a

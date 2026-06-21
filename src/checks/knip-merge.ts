@@ -10,7 +10,8 @@ import {
   type KnipMemberMap,
   type KnipReport,
 } from './knip-schema.js';
-import type { Violation } from '../types.js';
+import { type SpawnSkip } from '../wrap/run.js';
+import type { CheckOutcome, Violation } from '../types.js';
 
 const PRODUCTION_PASS_SOURCES = new Set<string>(['knip:files', ...CODE_KEYS.map((k) => `knip:${k}`)]);
 
@@ -122,7 +123,7 @@ function violationKey(v: Violation): string {
   return `${v.source}|${v.file}|${String(v.line)}|${String(v.column)}|${v.message}`;
 }
 
-export function dedupeViolations(violations: Violation[]): Violation[] {
+function dedupeViolations(violations: Violation[]): Violation[] {
   const seen = new Set<string>();
   const keep: Violation[] = [];
   for (const v of violations) {
@@ -134,6 +135,24 @@ export function dedupeViolations(violations: Violation[]): Violation[] {
   return keep;
 }
 
-export function deadCodeViolations(violations: Violation[]): Violation[] {
+function deadCodeViolations(violations: Violation[]): Violation[] {
   return violations.filter((v) => v.source !== undefined && PRODUCTION_PASS_SOURCES.has(v.source));
+}
+
+export type KnipPass =
+  | { kind: 'skip'; result: SpawnSkip }
+  | { kind: 'fail'; warning: string }
+  | { kind: 'ok'; violations: Violation[] };
+
+export interface DefaultRun {
+  notices: string[];
+  violations: Violation[];
+}
+
+export function combineProductionPass(base: DefaultRun, pass: KnipPass): CheckOutcome {
+  const { notices, violations } = base;
+  if (pass.kind === 'skip') return { violations, stderr: notices };
+  if (pass.kind === 'fail') return { violations, stderr: [...notices, pass.warning] };
+  const merged = dedupeViolations([...violations, ...deadCodeViolations(pass.violations)]);
+  return { violations: merged, stderr: notices };
 }

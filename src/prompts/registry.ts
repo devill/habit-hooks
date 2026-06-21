@@ -17,6 +17,12 @@ const supplementalSeeds: RuleSeed[] = [
     description: 'ESLint could not analyze the file — a parse error, unresolvable config, or a plugin threw.',
     severity: 'enforced',
   },
+  {
+    id: 'unused-export',
+    title: 'Unused export',
+    description: 'An export no production code references — either dead code, or an internal exposed only for tests.',
+    severity: 'suggested',
+  },
 ];
 
 function slugify(ruleId: string): string {
