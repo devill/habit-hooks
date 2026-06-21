@@ -12,7 +12,7 @@ const CONFIG_FILENAMES = [
 
 const NEW_CONFIG_FILENAME = 'habit-hooks.config.js';
 
-export interface DetectedLanguage {
+interface DetectedLanguage {
   language: Language;
   reason: string;
 }
