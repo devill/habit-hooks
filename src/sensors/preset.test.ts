@@ -66,3 +66,21 @@ describe('typescript preset', () => {
     expect(composite?.dependsOn).toEqual(['oversized-file', 'duplicated-code']);
   });
 });
+
+describe('python preset', () => {
+  it('registers ruff, jscpd, deptry, line-count, and needs-extraction sensors with their smell keys', () => {
+    const sensors = buildDefaultSensors('python', {
+      sink: { notices: [], failures: [] },
+      cwd: '',
+      rulesById: new Map<string, Rule>(),
+    });
+    expect(sensors.map((s) => s.id)).toEqual(['ruff', 'jscpd', 'deptry', 'line-count', 'needs-extraction']);
+    expect(sensors.find((s) => s.id === 'ruff')?.produces).toContain('too-many-parameters');
+    expect(sensors.find((s) => s.id === 'jscpd')?.produces).toEqual([JSCPD_SMELL]);
+    expect(sensors.find((s) => s.id === 'deptry')?.produces).toEqual(['unused-dependency']);
+    expect(sensors.find((s) => s.id === 'line-count')?.produces).toEqual(['oversized-file']);
+    const composite = sensors.find((s) => s.id === 'needs-extraction');
+    expect(composite?.produces).toEqual(['needs-extraction']);
+    expect(composite?.dependsOn).toEqual(['oversized-file', 'duplicated-code']);
+  });
+});
