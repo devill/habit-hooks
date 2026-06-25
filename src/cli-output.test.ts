@@ -8,7 +8,10 @@ import { run } from './runner.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = join(here, '..', 'tests', 'fixtures');
-const RUFF = spawnSync('ruff', ['--version']).status === 0;
+// The Python preset shells out to ruff and deptry; skip these python e2e cases
+// where the toolchain is incomplete so the suite stays green everywhere.
+const PY_TOOLS =
+  spawnSync('ruff', ['--version']).status === 0 && spawnSync('deptry', ['--version']).status === 0;
 
 const CLEAN_BANNER = '✅ Habit Hooks: automated checks passed.';
 
@@ -35,7 +38,7 @@ describe('CLI output — clean-run banner + violation-run output', () => {
     expect(result.stdout).toContain('Violations:');
   });
 
-  it.skipIf(!RUFF)('python clean run prints the pass banner (exit 0)', async () => {
+  it.skipIf(!PY_TOOLS)('python clean run prints the pass banner (exit 0)', async () => {
     dir = mkdtempSync(join(tmpdir(), 'hh-pyclean-'));
     writeFileSync(join(dir, 'habit-hooks.config.json'), JSON.stringify({ language: 'python' }));
     writeFileSync(join(dir, 'ok.py'), 'def add(a, b):\n    return a + b\n');
@@ -46,7 +49,7 @@ describe('CLI output — clean-run banner + violation-run output', () => {
     expect(result.stdout.startsWith(CLEAN_BANNER)).toBe(true);
   });
 
-  it.skipIf(!RUFF)('python violation run prints the count header and a coached section (exit 1)', async () => {
+  it.skipIf(!PY_TOOLS)('python violation run prints the count header and a coached section (exit 1)', async () => {
     const result = await run(join(fixtures, 'python-project'));
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toMatch(/^❌ Habit Hooks: \d+ violations/);
