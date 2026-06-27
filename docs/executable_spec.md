@@ -71,9 +71,9 @@ exit code on the `🖥️` line and using `🚨` only for stderr.
 
 ### Skipping
 
-`🟡` marks the enclosing leaf context's test as **skipped** — the harness reports
-it as skipped, not run. Use it to land a spec for behaviour that isn't built yet
-without failing the suite, then remove it once the behaviour passes.
+A `🟡` at the end of a heading marks that test as **skipped** — the harness
+reports it as skipped, not run. Use it to land a spec for behaviour that isn't
+built yet without failing the suite, then remove it once the behaviour passes.
 
 ## Markers reference (codepoints)
 
