@@ -1,13 +1,11 @@
-# Adapter sensor: ruff emits a flat JSON array of issues, so items = "[]".
-command  = "ruff check --output-format=json ${files}"
+# Adapter sensor: ruff emits a flat JSON array of issues; a jq transform in the
+# command remaps it to the canonical findings array. `language` is stamped onto
+# each finding by habit-sensors.
+command = """
+ruff check --output-format=json ${files} | jq '[.[] | {
+  smell: ({"C901":"high-complexity","PLR0913":"too-many-parameters","PLR0915":"oversized-function","F841":"unused-variable","F401":"unused-import"}[.code] // .code),
+  details: {file: .filename, line: .location.row, column: .location.column, message: .message, source: ("ruff:" + .code)}
+}]'
+"""
+language = "python"
 produces = ["high-complexity", "too-many-parameters", "oversized-function", "unused-variable", "unused-import"]
-
-items  = "[]"
-fields = { smell = "code", file = "filename", line = "location.row", column = "location.column", message = "message" }
-
-[map]
-"C901" = "high-complexity"
-"PLR0913" = "too-many-parameters"
-"PLR0915" = "oversized-function"
-"F841" = "unused-variable"
-"F401" = "unused-import"

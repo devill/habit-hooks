@@ -14,7 +14,7 @@ picked up cold. Nothing here blocks the docs/specs already committed; it blocks
 
 2. **Conditional adapter mapping.** ESLint fatals (`ruleId: null`, `fatal: true`)
    must route to `parse-error` — a flat `map` can't branch on a *different* field.
-   The `jq` variant ([adapter-jq-based.spec.md](adapter-jq-based.spec.md)) handles
+   The `jq` variant ([adapter.spec.md](adapter.spec.md)) handles
    this naturally (`if .fatal then …`); the declarative DSL would need a
    conditional/fallback rule. Also decide an exit-code/notice policy for
    tool-level config errors (exit ∉ {0,1} with unparseable stdout). _(from

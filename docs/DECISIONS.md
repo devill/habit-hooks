@@ -17,9 +17,8 @@ a few small pipes). Calls are _human requested_ (Ivett) unless noted.
 
 - **A sensor is a single `.toml`** carrying `command` + `produces` (+ optional
   `language`/`dependsOn`/`files`). It just has to print the findings array; an
-  adapter sensor maps a JSON-emitting tool via a mapping block — or, under
-  consideration, a `jq` transform in the command
-  ([adapter-jq-based.spec.md](adapter-jq-based.spec.md)). One descriptor source,
+  adapter sensor maps a JSON-emitting tool with a `jq` transform in the command
+  ([adapter.spec.md](adapter.spec.md)). One descriptor source,
   read statically — no `--describe` subprocess. _(Ivett's call over the agent's
   two-source proposal.)_
 
@@ -38,8 +37,15 @@ a few small pipes). Calls are _human requested_ (Ivett) unless noted.
   stdin) stays first-class in the contract, but `needs-extraction` was only ever a
   demonstrator — it moves to a demo project. Docs still cite it for the mechanism.
 
-- **Config is TOML** (Q5). A TypeScript build's dependency/decomposition choices
-  live in
-  [typescript-based-implementation-plan.md](typescript-based-implementation-plan.md);
-  the rebuild language itself is still open (leaning toward a lean, cross-platform
-  binary that shells out to common commands rather than a JS runtime).
+- **Config is TOML** (Q5).
+
+- **The rebuild targets Python** — chosen over a TypeScript build (Python is more
+  often present in polyglot dev tooling and avoids shipping binaries) and over a
+  Go binary (zero-runtime + Windows, but adds release machinery).
+
+- **Snooze keying: git by default, mtime fallback** — content-accurate without
+  hashing every file; pluggable for free since snooze is a filter sensor.
+
+- **Fixes run via configured runners, not direct execution** — only `.md` is
+  rendered by default; `[runners]` maps a guide extension to a command, so no
+  arbitrary execution ships out of the box.

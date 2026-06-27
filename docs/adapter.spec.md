@@ -1,28 +1,23 @@
-# Habit Adapter
+# Adapter sensor
 
-`habit-adapter` maps a tool's native JSON (stdin) into a `{smell, details}` JSON
-array, driven by a sensor spec's mapping block. The raw rule is kept in
-`details.source` as `<sensor>:<raw>`; `map` rewrites it to a canonical smell.
-See [sensors.md](sensors.md) for the mapping fields.
+An adapter sensor wraps a linter that already emits JSON: its command pipes the
+linter's output through `jq` into the canonical findings array. A sensor is just
+a command that prints `[{smell, details}]` — `habit-sensors` stamps the spec's
+`language` onto each finding.
 
-```bash
-habit-adapter() { ../../habit-adapter; }
+```toml
+# ruff.toml — the transform lives in the command
+command  = "ruff check --output-format json ${files} | jq '<transform>'"
+produces = ["too-many-parameters"]
+language = "python"
 ```
+
+These examples need no habit-hooks code to pass — `jq` does the whole mapping —
+so they are not skipped.
 
 ## Flat tools
 
-### A flat list of issues maps line by line 🟡
-
-Ruff emits a flat JSON array, so `items = "[]"` reads it directly.
-
-📄ruff.toml
-```toml
-command  = "ruff check --output-format json ${files}"
-produces = ["too-many-parameters"]
-items    = "[]"
-fields   = { smell = "code", file = "filename", line = "location.row", column = "location.column", message = "message" }
-map      = { PLR0913 = "too-many-parameters" }
-```
+### Ruff's flat list maps with one jq expression
 
 ⌨️
 ```json
@@ -40,7 +35,16 @@ map      = { PLR0913 = "too-many-parameters" }
 ```
 
 ```bash
-habit-adapter --spec ruff.toml | jq .
+jq '[.[] | {
+  smell: {"PLR0913": "too-many-parameters"}[.code],
+  details: {
+    file: .filename,
+    line: .location.row,
+    column: .location.column,
+    message: .message,
+    source: ("ruff:" + .code)
+  }
+}]'
 ```
 
 🖥️ ✅
@@ -61,20 +65,7 @@ habit-adapter --spec ruff.toml | jq .
 
 ## Nested tools
 
-### An outer group with inner issues flattens to one line each 🟡
-
-ESLint emits one entry per file with a `messages` array, so `group` reads the
-outer entry and `items` the inner one.
-
-📄eslint.toml
-```toml
-command  = "eslint -f json ${files}"
-produces = ["too-many-parameters"]
-group    = "[]"
-items    = "messages[]"
-fields   = { smell = "ruleId", file = "group.filePath", line = "line", column = "column", message = "message" }
-map      = { max-params = "too-many-parameters" }
-```
+### ESLint's per-file messages flatten with `.messages[]`
 
 ⌨️
 ```json
@@ -94,7 +85,16 @@ map      = { max-params = "too-many-parameters" }
 ```
 
 ```bash
-habit-adapter --spec eslint.toml | jq .
+jq '[.[] | .filePath as $file | .messages[] | {
+  smell: {"max-params": "too-many-parameters"}[.ruleId],
+  details: {
+    file: $file,
+    line: .line,
+    column: .column,
+    message: .message,
+    source: ("eslint:" + .ruleId)
+  }
+}]'
 ```
 
 🖥️ ✅

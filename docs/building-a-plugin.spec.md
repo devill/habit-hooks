@@ -40,7 +40,7 @@ end
 ```bash
 grep -rn TODO src | jq -Rn '[inputs
   | capture("(?<file>[^:]+):(?<line>[0-9]+):(?<text>.*)")
-  | {smell: "warning-comment", language: "lua",
+  | {smell: "warning-comment",
      details: {file: .file, line: (.line|tonumber),
                message: (.text | gsub("^\\s*--\\s*"; ""))}}]'
 ```
@@ -50,7 +50,6 @@ grep -rn TODO src | jq -Rn '[inputs
 [
   {
     "smell": "warning-comment",
-    "language": "lua",
     "details": {
       "file": "src/util.lua",
       "line": 2,
@@ -61,7 +60,7 @@ grep -rn TODO src | jq -Rn '[inputs
 ```
 
 To wrap a linter that already emits JSON instead, map its output with `jq` the
-same way — see [adapter-jq-based.spec.md](adapter-jq-based.spec.md).
+same way — see [adapter.spec.md](adapter.spec.md).
 
 ## 2. Coach the fix — a guide
 
@@ -106,5 +105,5 @@ habit-sensors --all | habit-mapper
 
 A Lua file with a `TODO` now surfaces `warning-comment`, routed to your guide.
 What each piece guarantees is pinned in [sensors.md](sensors.md),
-[adapter-jq-based.spec.md](adapter-jq-based.spec.md), and
+[adapter.spec.md](adapter.spec.md), and
 [mapper.spec.md](mapper.spec.md).
