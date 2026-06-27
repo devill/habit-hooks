@@ -1,8 +1,8 @@
 # Snoozer
 
-`habit-snoozer` is a pure stream filter. It reads `{smell, details}` JSONL on
-stdin and writes through every line **except** those a project has snoozed,
-unchanged.
+Snoozing is a **filter sensor** ([sensors.md](sensors.md)): it reads every
+`{smell, details}` finding from the other sensors and passes them through
+**except** those a project has snoozed.
 
 ## The snooze index
 
@@ -14,23 +14,21 @@ changes — a snoozed smell that moves to new code resurfaces.
 A line is dropped when `hash(file-contents) + smell` is present in the index.
 Lines without a `file` (project-level smells) are matched on `smell` alone.
 
-## Commands
+## Index lifecycle
 
-`habit-snoozer` also owns the snooze lifecycle (the only stateful CLI):
+The filter reads the index; these commands maintain it (the only stateful part):
 
-| Command                 | Effect                                                    |
-|-------------------------|----------------------------------------------------------|
-| (default, stdin→stdout) | Filter: drop snoozed lines.                              |
-| `snooze`                | Read findings on stdin, add them all to the index.       |
-| `prune`                 | Drop index entries whose file no longer produces them.   |
-| `list`                  | Print the current index.                                 |
+| Command  | Effect                                                  |
+|----------|---------------------------------------------------------|
+| `snooze` | Read findings on stdin, add them all to the index.      |
+| `prune`  | Drop index entries whose file no longer produces them.  |
+| `list`   | Print the current index.                                |
 
 Pruning is what keeps the baseline honest: a fixed finding's entry is reaped, so
 re-introducing it later is caught.
 
-## Why a separate stage
+## Why a filter sensor
 
-Snoozing is policy, not detection. Keeping it a stream filter means sensors stay
-ignorant of project history, and a full unfiltered run is always one pipe away
-(`habit-sensors | habit-mapper`, skipping the snoozer) for auditing what was
-hidden.
+Snoozing is policy, not detection. Modelling it as a filter sensor keeps the
+producing sensors ignorant of project history, and disabling the filter gives a
+full unfiltered run for auditing what was hidden.

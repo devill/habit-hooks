@@ -10,28 +10,27 @@ Three small CLIs composed with Unix pipes, carrying one JSON object per line
 (JSONL):
 
 ```
-habit-sensors <scope flags> | habit-snoozer | habit-mapper
+habit-sensors <scope flags> | habit-mapper
 ```
 
 ```mermaid
 graph LR
     files["working tree"] --> sensors["habit-sensors"]
-    sensors -->|"{smell, details}\n(JSONL)"| snoozer["habit-snoozer"]
-    snoozer -->|"unsnoozed JSONL"| mapper["habit-mapper"]
+    sensors -->|"unsnoozed {smell, details}\n(JSONL)"| mapper["habit-mapper"]
     mapper --> out["console output + exit code"]
 ```
 
-- **habit-sensors** — runs the enabled sensors (in parallel, composites last)
-  and emits one `{smell, details}` line per finding. See [sensors.md](sensors.md).
-- **habit-snoozer** — drops lines matching the snooze index. A pure stream
-  filter. See [snoozer.md](snoozer.md).
+- **habit-sensors** — runs the enabled sensors (producers in parallel,
+  transformers last) and emits one `{smell, details}` line per finding.
+  Snoozing is a transformer — a filter sensor that drops snoozed findings. See
+  [sensors.md](sensors.md).
 - **habit-mapper** — groups by smell, renders each smell's guide, sets the exit
-  code. See [mapper.md](mapper.md).
+  code. See [mapper.spec.md](mapper.spec.md).
 
 A fourth CLI, **habit-adapter**, is a helper used *inside* sensors: it maps a
 tool's native JSON into `{smell, details}` lines (see [sensors.md](sensors.md)).
 
-`habit-hooks` itself is just the composition of the three.
+`habit-hooks` itself is just the composition of the two.
 
 ## The bag
 
@@ -114,18 +113,23 @@ Any sensor or guide is resolved by first match across:
 
 ## Packaging
 
-One npm package exposes the bins `habit-sensors`, `habit-snoozer`,
-`habit-mapper`, `habit-adapter`, and `habit-hooks` (the composition). Each
+One npm package exposes the bins `habit-sensors`, `habit-mapper`,
+`habit-adapter`, and `habit-hooks` (the composition). Each
 stage is independent: it reads JSONL in and writes JSONL out, so any stage can
 be run, tested, or replaced alone.
 
 [implementation.md](implementation.md) records how each CLI decomposes into
 trivial pieces and which existing package owns each one.
 
-## Combinations
+## Transforming sensors
 
-Co-occurring smells (e.g. `oversized-file` + `duplicated-code` in one file →
-`needs-extraction`) are handled by a **composite sensor**: a sensor that
-`dependsOn` other smells, receives their issues on stdin, and emits a derived
-smell. `habit-sensors` runs leaf sensors first, then feeds composites. The
-mapper stays a pure single-smell function. See [sensors.md](sensors.md).
+A sensor may consume other sensors' findings instead of (or as well as) running
+a tool:
+
+- **Composite** — `dependsOn` other smells and emits a derived one (co-occurring
+  `oversized-file` + `duplicated-code` in a file → `needs-extraction`).
+- **Filter** — drops findings that pass through it. **Snoozing** is a filter
+  sensor (see [snoozer.md](snoozer.md)).
+
+`habit-sensors` runs producers first, then feeds transformers in dependency
+order. The mapper stays a pure single-smell function. See [sensors.md](sensors.md).
