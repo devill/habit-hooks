@@ -37,11 +37,13 @@ into `{smell, details}` findings via its spec (see [sensors.md](sensors.md)).
 Stages communicate through a JSON array of findings, each:
 
 ```jsonc
-{ "smell": "too-many-parameters", "details": { "file": "src/billing.ts", "line": 2, "column": 22 } }
+{ "smell": "too-many-parameters", "language": "typescript", "details": { "file": "src/billing.ts", "line": 2, "column": 22 } }
 ```
 
-`smell` is the **only** field with fixed meaning — it is the routing key.
-`details` is an open bag the sensor fills with whatever fits that smell.
+`smell` is the routing key. `language` is an optional second key: when a sensor
+tags a finding with it, the mapper resolves a language-specific fix before the
+generic one (see Resolution). `details` is an open bag the sensor fills with
+whatever fits that smell.
 Conventional common fields let one prompt serve many smells:
 
 | Field             | Meaning                              |
@@ -107,6 +109,9 @@ Any sensor or guide is resolved by first match across:
 2. `.habit-hooks/generic/`
 3. `<package>/plugins/<language>/`
 4. `<package>/plugins/generic/`
+
+A guide's `<language>` is the finding's `language`; a finding without one
+resolves against `generic/` only.
 
 `config.toml` merges in the same order (project last wins). See
 [config.md](config.md).

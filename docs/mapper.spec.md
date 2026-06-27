@@ -284,6 +284,44 @@ habit-mapper
 1 function(s) over 3 parameters. Bundle arguments into an object.
 ```
 
+### A finding's language selects a language-specific guide 🟡
+
+When a finding carries a `language`, that language's guide overrides the generic
+one for the smell.
+
+📄.habit-hooks/generic/guides/loose-equality.md
+```markdown
+Replace `==`/`!=` with a strict comparison.
+```
+
+📄.habit-hooks/typescript/guides/loose-equality.md
+```markdown
+Use `===`/`!==`; TypeScript will not coerce types for you.
+```
+
+⌨️
+```json
+[
+  {
+    "smell": "loose-equality",
+    "language": "typescript",
+    "details": {
+      "file": "src/x.ts",
+      "line": 3
+    }
+  }
+]
+```
+
+```bash
+habit-mapper
+```
+
+🖥️ ❌ 1
+```text
+Use `===`/`!==`; TypeScript will not coerce types for you.
+```
+
 ### An unknown smell escalates with the default guidance 🟡
 
 A smell with no catalogue entry has no tuned guide. It defaults to `enforced`
