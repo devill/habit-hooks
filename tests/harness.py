@@ -20,20 +20,20 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from markdown_it import MarkdownIt
+
 # Marker base codepoints (U+FE0F stripped before matching).
 _FILE = "\U0001F4C4"  # 📄
-_ENV = "✏"  # ✏️
 _STDIN = "⌨"  # ⌨️
 _SCREEN = "\U0001F5A5"  # 🖥️
 _STDERR = "\U0001F6A8"  # 🚨
+_ENV = "✏"  # ✏️
 _SKIP = "\U0001F7E1"  # 🟡
 _PASS = "✅"  # ✅
 _FAIL = "❌"  # ❌
 
 _MARKERS = {_FILE: "file", _ENV: "env", _STDIN: "stdin", _SCREEN: "screen", _STDERR: "stderr"}
-
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
-_HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 
 
 class SpecError(Exception):
@@ -52,13 +52,50 @@ def normalize(text: str) -> str:
     return "\n".join(lines)
 
 
-# --- Steps -----------------------------------------------------------------
+# --- Execution context -----------------------------------------------------
+
+
+class Context:
+    """Mutable state shared by a single test's steps as they run."""
+
+    def __init__(self, workdir: Path, repo_root: Path):
+        self.workdir = workdir
+        self.repo_root = repo_root
+        self.env = dict(os.environ)
+        self.stdin: str | None = None
+        self.last: subprocess.CompletedProcess[str] | None = None
+        self.exit_checked = False
+
+    def require_last(self, marker: str) -> subprocess.CompletedProcess[str]:
+        if self.last is None:
+            raise SpecError(f"{marker} assertion with no preceding command")
+        return self.last
+
+    def check_default_exit(self) -> None:
+        """A command with no explicit exit assertion must still have exited 0."""
+        if self.last is not None and not self.exit_checked and self.last.returncode != 0:
+            raise SpecFailure(f"command exited {self.last.returncode}, expected 0\n{self.last.stderr}")
+
+    def assert_stream(self, name: str, actual: str, expected: str | None) -> None:
+        if expected is not None and normalize(actual) != normalize(expected):
+            raise SpecFailure(
+                f"{name} mismatch\n--- expected ---\n{normalize(expected)}\n"
+                f"--- actual ---\n{normalize(actual)}"
+            )
+
+
+# --- Steps (each knows how to apply itself) --------------------------------
 
 
 @dataclass
 class WriteFile:
     path: str
-    content: str | None = None  # filled when its block is consumed
+    block: str | None = None  # the file's content, filled when its fence is paired
+
+    def apply(self, c: Context) -> None:
+        dest = c.workdir / self.path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(self.block + "\n")
 
 
 @dataclass
@@ -66,33 +103,72 @@ class CopyFile:
     dst: str
     src: str
 
+    def apply(self, c: Context) -> None:
+        dest = c.workdir / self.dst
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes((c.repo_root / self.src).read_bytes())
+
 
 @dataclass
 class SetEnv:
     var: str
-    content: str | None = None
+    block: str | None = None
+
+    def apply(self, c: Context) -> None:
+        c.env[self.var] = self.block
 
 
 @dataclass
 class Stdin:
-    content: str | None = None
+    block: str | None = None
+
+    def apply(self, c: Context) -> None:
+        c.stdin = self.block + "\n"
 
 
 @dataclass
 class Command:
     script: str
 
+    def apply(self, c: Context) -> None:
+        c.check_default_exit()
+        c.last = subprocess.run(
+            ["bash", "-c", self.script],
+            cwd=c.workdir,
+            env=c.env,
+            input=c.stdin,
+            capture_output=True,
+            text=True,
+        )
+        c.stdin = None
+        c.exit_checked = False
+
 
 @dataclass
 class Screen:
     exit_code: int
-    expected: str | None = None  # expected stdout
+    block: str | None = None  # expected stdout
+
+    def apply(self, c: Context) -> None:
+        result = c.require_last("🖥️")
+        c.exit_checked = True
+        if result.returncode != self.exit_code:
+            raise SpecFailure(f"exit {result.returncode}, expected {self.exit_code}\n{result.stderr}")
+        c.assert_stream("stdout", result.stdout, self.block)
 
 
 @dataclass
 class Stderr:
     exit_code: int | None = None
-    expected: str | None = None  # expected stderr
+    block: str | None = None  # expected stderr
+
+    def apply(self, c: Context) -> None:
+        result = c.require_last("🚨")
+        if self.exit_code is not None:
+            c.exit_checked = True
+            if result.returncode != self.exit_code:
+                raise SpecFailure(f"exit {result.returncode}, expected {self.exit_code}")
+        c.assert_stream("stderr", result.stderr, self.block)
 
 
 @dataclass
@@ -102,50 +178,118 @@ class SpecCase:
     steps: list[object]
 
 
-# --- Parsing ---------------------------------------------------------------
+# --- Markdown elements -----------------------------------------------------
 
 
 @dataclass
-class _Token:
-    kind: str  # "heading" | "marker" | "block"
-    # heading: level, text, skip
-    level: int = 0
-    text: str = ""
-    skip: bool = False
-    # marker: marker, arg
-    marker: str = ""
-    arg: str = ""
-    # block: info, content
-    info: str = ""
-    content: str = ""
+class Heading:
+    level: int
+    text: str
+    skip: bool
 
 
-def _tokenize(text: str) -> list[_Token]:
-    tokens: list[_Token] = []
-    lines = text.split("\n")
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.lstrip()
-        if stripped.startswith("```"):
-            info = stripped[3:].strip()
-            body: list[str] = []
-            i += 1
-            while i < len(lines) and not lines[i].lstrip().startswith("```"):
-                body.append(lines[i])
-                i += 1
-            i += 1  # closing fence
-            tokens.append(_Token("block", info=info, content="\n".join(body)))
-            continue
-        m = _HEADING.match(line)
-        if m:
-            heading = m.group(2).rstrip()
-            skip = heading.replace("️", "").rstrip().endswith(_SKIP)
-            tokens.append(_Token("heading", level=len(m.group(1)), text=heading, skip=skip))
-        elif stripped and stripped[0] in _MARKERS:
-            tokens.append(_Token("marker", marker=_MARKERS[stripped[0]], arg=stripped[1:].replace("️", "")))
-        i += 1
-    return tokens
+@dataclass
+class Marker:
+    kind: str
+    arg: str
+
+
+@dataclass
+class Block:
+    info: str
+    content: str
+
+    @property
+    def is_command(self) -> bool:
+        # ```bash is reserved for commands and never consumed as a marker payload.
+        head = self.info.split()
+        return bool(head) and head[0] == "bash"
+
+
+def _elements(text: str) -> list[object]:
+    """Markdown → the ordered Heading/Marker/Block elements we care about."""
+    tokens = MarkdownIt("commonmark").parse(text)
+    elements: list[object] = []
+    for i, tok in enumerate(tokens):
+        if tok.type == "heading_open":
+            line = tokens[i + 1].content.rstrip()
+            skip = line.replace("️", "").rstrip().endswith(_SKIP)
+            elements.append(Heading(int(tok.tag[1]), line, skip))
+        elif tok.type == "fence":
+            elements.append(Block(tok.info.strip(), tok.content.rstrip("\n")))
+        elif tok.type == "inline" and tokens[i - 1].type == "paragraph_open":
+            for line in tok.content.split("\n"):
+                head = line.lstrip()
+                if head and head[0] in _MARKERS:
+                    elements.append(Marker(_MARKERS[head[0]], head[1:].replace("️", "")))
+    return elements
+
+
+# --- Building steps from markers -------------------------------------------
+
+
+def _exit_code(arg: str) -> int | None:
+    fail = re.search(_FAIL + r"\s*(\d+)", arg)
+    if fail:
+        return int(fail.group(1))
+    return 0 if _PASS in arg else None
+
+
+def _build_marker(marker: Marker) -> tuple[object, bool | None]:
+    """Return (step, block) where block is None=no fence, True=required, False=optional."""
+    kind, arg = marker.kind, marker.arg
+    if kind == "file":
+        arg = arg.strip()
+        if "@" in arg:
+            dst, src = (p.strip() for p in arg.split("@", 1))
+            return CopyFile(dst or src, src), None
+        return WriteFile(arg), True
+    if kind == "env":
+        return SetEnv(arg.strip()), True
+    if kind == "stdin":
+        return Stdin(), True
+    if kind == "screen":
+        return Screen(_exit_code(arg) or 0), False
+    return Stderr(_exit_code(arg)), False  # kind == "stderr"
+
+
+def _build_steps(elements: list[object]) -> list[object]:
+    """Pair markers with their payload fences for one context's direct elements."""
+    steps: list[object] = []
+    pending: tuple[object, bool] | None = None  # (step, fence_required)
+
+    def flush() -> None:
+        nonlocal pending
+        if pending is None:
+            return
+        step, required = pending
+        if required:
+            raise SpecError(f"marker {step!r} has no code block")
+        steps.append(step)
+        pending = None
+
+    for el in elements:
+        if isinstance(el, Marker):
+            flush()
+            step, needs = _build_marker(el)
+            if needs is None:
+                steps.append(step)
+            else:
+                pending = (step, needs)
+        elif isinstance(el, Block):
+            if el.is_command:
+                flush()
+                steps.append(Command(el.content))
+            elif pending is not None:
+                pending[0].block = el.content
+                steps.append(pending[0])
+                pending = None
+            # else: a bare fence with no owning marker is cosmetic — ignore.
+    flush()
+    return steps
+
+
+# --- Parsing into test cases -----------------------------------------------
 
 
 @dataclass
@@ -153,171 +297,53 @@ class _Node:
     level: int
     skip: bool
     parent: "_Node | None"
-    tokens: list[_Token] = field(default_factory=list)
+    name: str
+    elements: list[object] = field(default_factory=list)
     has_child: bool = False
-    name: str = ""
 
 
-def _exit_code(arg: str) -> int | None:
-    m = re.search(_FAIL + r"\s*(\d+)", arg)
-    if m:
-        return int(m.group(1))
-    return 0 if _PASS in arg else None
-
-
-def _build_steps(tokens: list[_Token]) -> list[object]:
-    """Pair markers with their payload blocks for one node's direct tokens."""
-    steps: list[object] = []
-    awaiting: object | None = None  # a marker step awaiting an optional/required block
-
-    def finalize() -> None:
-        nonlocal awaiting
-        if awaiting is None:
-            return
-        if isinstance(awaiting, (WriteFile, SetEnv, Stdin)) and awaiting.content is None:
-            raise SpecError(f"marker {awaiting!r} has no code block")
-        steps.append(awaiting)
-        awaiting = None
-
-    for tok in tokens:
-        if tok.kind == "marker":
-            finalize()
-            if tok.marker == "file":
-                arg = tok.arg.strip()
-                if "@" in arg:
-                    dst, src = (p.strip() for p in arg.split("@", 1))
-                    steps.append(CopyFile(dst or src, src))
-                else:
-                    awaiting = WriteFile(arg)
-            elif tok.marker == "env":
-                awaiting = SetEnv(tok.arg.strip())
-            elif tok.marker == "stdin":
-                awaiting = Stdin()
-            elif tok.marker == "screen":
-                awaiting = Screen(_exit_code(tok.arg) or 0)
-            elif tok.marker == "stderr":
-                awaiting = Stderr(_exit_code(tok.arg))
-        elif tok.kind == "block":
-            if tok.info.split() and tok.info.split()[0] == "bash":
-                finalize()
-                steps.append(Command(tok.content))
-            elif awaiting is not None:
-                if isinstance(awaiting, (WriteFile, SetEnv, Stdin)):
-                    awaiting.content = tok.content
-                else:  # Screen / Stderr
-                    awaiting.expected = tok.content
-                steps.append(awaiting)
-                awaiting = None
-            # else: a bare block with no owning marker is cosmetic — ignore.
-    finalize()
-    return steps
+def _ancestry(node: _Node) -> list[_Node]:
+    chain: list[_Node] = []
+    while node is not None:
+        chain.append(node)
+        node = node.parent
+    chain.reverse()
+    return chain
 
 
 def parse_spec(text: str) -> list[SpecCase]:
     """Return the leaf test cases, each with its full inherited step list."""
-    tokens = _tokenize(text)
     nodes: list[_Node] = []
     stack: list[_Node] = []  # current ancestry, by increasing heading level
-
-    for tok in tokens:
-        if tok.kind == "heading":
-            while stack and stack[-1].level >= tok.level:
+    for el in _elements(text):
+        if isinstance(el, Heading):
+            while stack and stack[-1].level >= el.level:
                 stack.pop()
             parent = stack[-1] if stack else None
-            node = _Node(level=tok.level, skip=tok.skip, parent=parent, name=tok.text)
+            node = _Node(el.level, el.skip, parent, el.text)
             if parent is not None:
                 parent.has_child = True
             nodes.append(node)
             stack.append(node)
         elif stack:
-            stack[-1].tokens.append(tok)
+            stack[-1].elements.append(el)
 
     tests: list[SpecCase] = []
     for node in nodes:
         if node.has_child:
-            continue  # only leaves are tests
-        ancestry: list[_Node] = []
-        cur: _Node | None = node
-        skip = False
-        while cur is not None:
-            ancestry.append(cur)
-            skip = skip or cur.skip
-            cur = cur.parent
-        ancestry.reverse()
-        steps: list[object] = []
-        for anc in ancestry:
-            steps.extend(_build_steps(anc.tokens))
-        tests.append(SpecCase(name=node.name, skip=skip, steps=steps))
+            continue  # only leaf contexts are tests
+        chain = _ancestry(node)
+        steps = [step for anc in chain for step in _build_steps(anc.elements)]
+        tests.append(SpecCase(node.name, any(n.skip for n in chain), steps))
     return tests
 
 
-# --- Execution -------------------------------------------------------------
-
-
 def execute(test: SpecCase, workdir: Path, repo_root: Path) -> None:
-    """Run a test's steps in ``workdir``. Raise SpecFailure on any failure."""
-    env = dict(os.environ)
-    stdin: str | None = None
-    last: subprocess.CompletedProcess[str] | None = None
-    exit_checked = False
-
-    def check_default_exit() -> None:
-        if last is not None and not exit_checked and last.returncode != 0:
-            raise SpecFailure(
-                f"command exited {last.returncode}, expected 0\n{last.stderr}"
-            )
-
+    """Run a test's steps in ``workdir``. Raise on any assertion failure."""
+    context = Context(workdir, repo_root)
     for step in test.steps:
-        if isinstance(step, WriteFile):
-            dest = workdir / step.path
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(step.content + "\n")
-        elif isinstance(step, CopyFile):
-            dest = workdir / step.dst
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes((repo_root / step.src).read_bytes())
-        elif isinstance(step, SetEnv):
-            env[step.var] = step.content
-        elif isinstance(step, Stdin):
-            stdin = step.content + "\n"
-        elif isinstance(step, Command):
-            check_default_exit()
-            last = subprocess.run(
-                ["bash", "-c", step.script],
-                cwd=workdir,
-                env=env,
-                input=stdin,
-                capture_output=True,
-                text=True,
-            )
-            stdin = None
-            exit_checked = False
-        elif isinstance(step, Screen):
-            if last is None:
-                raise SpecError("🖥️ assertion with no preceding command")
-            exit_checked = True
-            if last.returncode != step.exit_code:
-                raise SpecFailure(
-                    f"exit {last.returncode}, expected {step.exit_code}\n{last.stderr}"
-                )
-            if step.expected is not None and normalize(last.stdout) != normalize(step.expected):
-                raise SpecFailure(
-                    f"stdout mismatch\n--- expected ---\n{normalize(step.expected)}\n"
-                    f"--- actual ---\n{normalize(last.stdout)}"
-                )
-        elif isinstance(step, Stderr):
-            if last is None:
-                raise SpecError("🚨 assertion with no preceding command")
-            if step.exit_code is not None:
-                exit_checked = True
-                if last.returncode != step.exit_code:
-                    raise SpecFailure(f"exit {last.returncode}, expected {step.exit_code}")
-            if step.expected is not None and normalize(last.stderr) != normalize(step.expected):
-                raise SpecFailure(
-                    f"stderr mismatch\n--- expected ---\n{normalize(step.expected)}\n"
-                    f"--- actual ---\n{normalize(last.stderr)}"
-                )
-    check_default_exit()
+        step.apply(context)
+    context.check_default_exit()
 
 
 # --- Discovery & runner (CLI) ----------------------------------------------
@@ -335,10 +361,6 @@ def discover(root: Path) -> list[Path]:
     return sorted(root.glob("docs/**/*.spec.md"))
 
 
-def run_file(path: Path, repo_root: Path) -> list[Result]:
-    return [run_test(test, path, repo_root) for test in parse_spec(path.read_text())]
-
-
 def run_test(test: SpecCase, path: Path, repo_root: Path) -> Result:
     if test.skip:
         return Result(path, test.name, "skip")
@@ -348,6 +370,10 @@ def run_test(test: SpecCase, path: Path, repo_root: Path) -> Result:
         except (SpecFailure, SpecError) as exc:
             return Result(path, test.name, "fail", str(exc))
     return Result(path, test.name, "pass")
+
+
+def run_file(path: Path, repo_root: Path) -> list[Result]:
+    return [run_test(test, path, repo_root) for test in parse_spec(path.read_text())]
 
 
 _GLYPH = {"pass": "✅", "skip": "🟡", "fail": "❌"}
@@ -365,11 +391,11 @@ def main(argv: list[str] | None = None) -> int:
     for path in files:
         rel = path.relative_to(root) if path.is_relative_to(root) else path
         print(f"\n{rel}")
-        for r in run_file(path, root):
-            counts[r.status] += 1
-            print(f"  {_GLYPH[r.status]} {r.name}")
-            if r.status == "fail":
-                for line in r.message.splitlines():
+        for result in run_file(path, root):
+            counts[result.status] += 1
+            print(f"  {_GLYPH[result.status]} {result.name}")
+            if result.status == "fail":
+                for line in result.message.splitlines():
                     print(f"      {line}")
 
     print(f"\n{counts['pass']} passed, {counts['skip']} skipped, {counts['fail']} failed")

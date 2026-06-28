@@ -4,14 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from harness import (
-    SpecCase,
-    SpecError,
-    SpecFailure,
-    execute,
-    normalize,
-    parse_spec,
-)
+from harness import SpecError, SpecFailure, execute, normalize, parse_spec
 
 
 def run(text: str, tmp_path: Path, repo_root: Path | None = None) -> list[str]:

@@ -11,3 +11,11 @@ coverage
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Local habit-hooks dogfooding setup (the npm tool we run against this code,
+# not part of the rebuild deliverable). Installed via `npm i habit-hooks`.
+package.json
+package-lock.json
+habit-hooks.config.js
+.habit-hooks-baseline.json
+ruff.toml
