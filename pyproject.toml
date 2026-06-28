@@ -17,8 +17,8 @@ testpaths = ["tests", "docs"]
 pythonpath = ["tests"]
 
 [tool.deptry]
-# `harness` and `tools` are our own packages (tests/, on pytest's pythonpath).
-known_first_party = ["harness", "tools"]
+# `harness` is our own package (tests/, on pytest's pythonpath).
+known_first_party = ["harness"]
 
 [tool.deptry.per_rule_ignores]
 # pytest is a dev-only test framework; its use in pytest's own conftest glue is

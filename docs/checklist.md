@@ -22,6 +22,33 @@ decisions taken while reconciling the docs. See [DECISIONS.md](DECISIONS.md) and
   rule sets, and severities the old implementation shipped (eslint config, knip,
   jscpd, ruff/deptry defaults, smell severities). Do not copy its code.
 
+## Core dependencies (decided 2026-06)
+
+The core stays close to "a few small pipes": stdlib does most of it, with three
+vetted runtime deps (all checked for active maintenance + ecosystem reach).
+
+| Need | Choice | Notes |
+|------|--------|-------|
+| Template rendering (mapper) | **Jinja2** | Pallets-backed, BSD-3. Spec templates are already Jinja2 syntax. |
+| File glob / path matching (sensor scope) | **pathspec** (gitwildmatch) | Most-depended-upon globber in the ecosystem (Black uses it); MPL-2.0. **No brace expansion** — author globs as a list (Phase 0 task). Walk a tree via `match_tree_files(root)`. |
+| Config validation (open q #3) | **pydantic v2** | MIT, Rust core ships as prebuilt wheels (~few MB, no toolchain). Validates the merged TOML config. |
+| Read TOML (config + sensor specs) | `tomllib` (stdlib) | 3.11+, read-only — all the core ever does is read. |
+| Composite dependency ordering | `graphlib.TopologicalSorter` (stdlib) | order + cycle detection for free. |
+| CLI arg parsing | `argparse` (stdlib) | the CLIs are tiny; no framework dep. |
+| Parallel leaf-sensor runs | `concurrent.futures` (stdlib) | sensors are subprocess-bound, threads suffice. |
+| Subprocess / git / fix runners | `subprocess` (stdlib) | git for scope + snooze keying — not GitPython. |
+| Snooze index storage | JSON (stdlib) | machine-managed file; `tomllib` can't write TOML and the index isn't hand-edited. |
+
+License note: pathspec is MPL-2.0 (weak, file-level copyleft) — fine to depend
+on; Jinja2 is BSD-3, pydantic MIT.
+
+**Packaging shift (Phase 2 prep).** Today's `pyproject.toml` sets
+`package = false` with deps only in the `dev` group — it wires up the spec
+harness, nothing more. Building the core CLIs turns habit-hooks into a real
+Python package: drop `package = false`, add `[project.scripts]` entry points
+(`habit-mapper`, `habit-sensors`, `habit-snooze`, `habit-hooks`) and the runtime
+deps above (`jinja2`, `pathspec`, `pydantic`).
+
 ## Phase 0 — Doc reconciliation (no product code)
 
 The finding contract is **`mapper.spec.md`**: a sensor emits **one entry per
@@ -38,6 +65,10 @@ smell** — `{smell, language?, details}` — and the `details` bag carries the
 - [ ] Remove stale `map`-block references (`smell-vocabulary.md`,
       `open_questions.md`) — the DSL is gone, jq does mapping.
 - [ ] Standardize on plural `languages` for the project config key everywhere.
+- [ ] Replace brace globs (`**/*.{ts,tsx,js,mjs,cjs}`) with a list of
+      single-extension globs (`["**/*.ts", "**/*.tsx", …]`) everywhere they
+      appear (`config.md`, `config.example.toml`, `architecture.md`, examples) —
+      pathspec's gitwildmatch has no brace expansion.
 - [ ] Replace "Nunjucks" with "Jinja2" in prose (`guide.md`, `architecture.md`,
       `mapper.spec.md`) — the core is Python; the template syntax in the specs is
       already Jinja2-compatible, only the named library changes.
@@ -83,10 +114,11 @@ command.
 
 ## Phase 2 — Core CLIs (TDD against the harness)
 
-- [ ] `habit-mapper` — group findings by smell, render guides (Nunjucks-equivalent
-      templating in Python), resolve guides across the override chain, run fix
-      runners for non-`.md` guides, set the exit code from severity. Drive with
-      `mapper.spec.md`.
+- [ ] `habit-mapper` — group findings by smell, render guides (Jinja2), resolve
+      guides across the override chain, run fix runners for non-`.md` guides, set
+      the exit code from severity. Drive with `mapper.spec.md`.
+- [ ] Config loader — merge TOML across the resolution chain (`tomllib`) and
+      validate the merged result (pydantic v2); closes open question #3.
 - [ ] `habit-sensors` — resolve the sensor set, order producers/composites, run
       commands, stamp language, merge findings, apply the tool-error policy and
       bin resolution.
