@@ -97,7 +97,7 @@ severity = "suggested"         # enforced (exit 1) | suggested (exit 0)
 
 Anything omitted falls back to the catalogue and generic defaults.
 
-## 4. Try it
+## 4. Try it 🟡
 
 ```bash
 habit-sensors --all | habit-mapper
