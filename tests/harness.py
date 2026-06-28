@@ -218,6 +218,9 @@ def _elements(text: str) -> list[object]:
         elif tok.type == "fence":
             elements.append(Block(tok.info.strip(), tok.content.rstrip("\n")))
         elif tok.type == "inline" and tokens[i - 1].type == "paragraph_open":
+            # Markers only ever appear as paragraph text; an inline token is
+            # always preceded by its container open, so i-1 is safe (never i==0).
+            # One paragraph may hold several marker lines (no blank between them).
             for line in tok.content.split("\n"):
                 head = line.lstrip()
                 if head and head[0] in _MARKERS:

@@ -82,6 +82,12 @@ def test_file_copy_marker(tmp_path):
     assert run(spec, tmp_path, repo_root=tmp_path) == ["pass"]
 
 
+def test_file_copy_marker_with_explicit_dest(tmp_path):
+    (tmp_path / "fixture.txt").write_text("from repo\n")
+    spec = "# T\n📄dest.txt @fixture.txt\n```bash\ncat dest.txt\n```\n🖥️ ✅\n```text\nfrom repo\n```\n"
+    assert run(spec, tmp_path, repo_root=tmp_path) == ["pass"]
+
+
 def test_stderr_marker_asserts_stderr(tmp_path):
     spec = "# T\n```bash\necho boom >&2\n```\n🚨\n```text\nboom\n```\n"
     assert run(spec, tmp_path) == ["pass"]
@@ -93,8 +99,16 @@ def test_stderr_marker_mismatch_fails(tmp_path):
 
 
 def test_stderr_with_screen_failure(tmp_path):
+    # 🖥️ and 🚨 sit on adjacent lines with no blank between, so markdown-it
+    # groups them into one paragraph — both markers must still be extracted.
     spec = "# T\n```bash\necho bad >&2; exit 1\n```\n🖥️ ❌ 1\n🚨\n```text\nbad\n```\n"
     assert run(spec, tmp_path) == ["pass"]
+
+
+def test_adjacent_marker_lines_parse_separately():
+    # Regression guard for the parser swap: two markers in one paragraph.
+    steps = parse_spec("# T\n```bash\ntrue\n```\n🖥️ ✅\n🚨\n")[0].steps
+    assert [type(s).__name__ for s in steps] == ["Command", "Screen", "Stderr"]
 
 
 def test_variation_selector_ignored(tmp_path):
@@ -157,3 +171,9 @@ def test_missing_required_block_is_spec_error():
     # ✏️ with no following block is malformed (caught while pairing markers).
     with pytest.raises(SpecError):
         parse_spec("# T\n✏️X\n```bash\ntrue\n```\n")
+
+
+def test_stdin_missing_block_is_spec_error():
+    # ⌨️ likewise requires its payload block before the command runs.
+    with pytest.raises(SpecError):
+        parse_spec("# T\n⌨️\n```bash\ncat\n```\n")
