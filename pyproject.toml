@@ -13,5 +13,14 @@ package = false
 dev = ["pytest>=8", "markdown-it-py>=3"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "docs"]
 pythonpath = ["tests"]
+
+[tool.deptry]
+# `harness` is our own module (tests/, on pytest's pythonpath).
+known_first_party = ["harness"]
+
+[tool.deptry.per_rule_ignores]
+# pytest is a dev-only test framework; its use in pytest's own conftest glue is
+# expected, not a misplaced production dependency.
+DEP004 = ["pytest"]
