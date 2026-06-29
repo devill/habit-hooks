@@ -82,6 +82,12 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "habit-hooks-generic" },
+    { name = "habit-hooks-php" },
+    { name = "habit-hooks-python" },
+    { name = "habit-hooks-typescript" },
+]
 generic = [
     { name = "habit-hooks-generic" },
 ]
@@ -109,15 +115,19 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "habit-hooks-generic", marker = "extra == 'all'", editable = "plugins/generic" },
     { name = "habit-hooks-generic", marker = "extra == 'generic'", editable = "plugins/generic" },
+    { name = "habit-hooks-php", marker = "extra == 'all'", editable = "plugins/php" },
     { name = "habit-hooks-php", marker = "extra == 'php'", editable = "plugins/php" },
+    { name = "habit-hooks-python", marker = "extra == 'all'", editable = "plugins/python" },
     { name = "habit-hooks-python", marker = "extra == 'python'", editable = "plugins/python" },
+    { name = "habit-hooks-typescript", marker = "extra == 'all'", editable = "plugins/typescript" },
     { name = "habit-hooks-typescript", marker = "extra == 'typescript'", editable = "plugins/typescript" },
     { name = "jinja2", specifier = ">=3" },
     { name = "pathspec", specifier = ">=0.12" },
     { name = "pydantic", specifier = ">=2" },
 ]
-provides-extras = ["generic", "python", "typescript", "php"]
+provides-extras = ["generic", "python", "typescript", "php", "all"]
 
 [package.metadata.requires-dev]
 dev = [

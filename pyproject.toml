@@ -10,6 +10,12 @@ generic = ["habit-hooks-generic"]
 python = ["habit-hooks-python"]
 typescript = ["habit-hooks-typescript"]
 php = ["habit-hooks-php"]
+all = [
+    "habit-hooks-generic",
+    "habit-hooks-python",
+    "habit-hooks-typescript",
+    "habit-hooks-php",
+]
 
 [project.scripts]
 habit-mapper = "habit_hooks.mapper:main"

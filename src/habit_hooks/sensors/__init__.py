@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from ..config import load_config
+from ..recommend import recommendations
 from ..resolve import Resolver
 from ..scope import parse_args, resolve_scope
 from .execution import Execution
@@ -37,7 +38,10 @@ def _run_plugin(plugin: Plugin, execution: Execution) -> Run:
 def run_sensors(loader: PluginLoader, execution: Execution) -> Run:
     run = Run()
     for name in loader.config.plugins:
-        result = _run_plugin(loader.load_plugin(name), execution)
+        plugin = loader.load_plugin(name)
+        if plugin.language is not None:
+            run.active_languages.add(plugin.language)
+        result = _run_plugin(plugin, execution)
         run.findings.extend(result.findings)
         run.notices.extend(result.notices)
     transformers = [
@@ -58,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     sys.stdout.write(json.dumps(run.findings) + "\n")
     for notice in run.notices:
         sys.stderr.write(notice + "\n")
+    for hint in recommendations(project_dir, scope.files, run.active_languages):
+        sys.stderr.write(hint + "\n")
     return 1 if run.failed else 0
 
 

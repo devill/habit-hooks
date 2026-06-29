@@ -31,6 +31,7 @@ class Plugin:
 class Run:
     findings: list[dict] = field(default_factory=list)
     notices: list[str] = field(default_factory=list)
+    active_languages: set[str] = field(default_factory=set)
 
     @property
     def failed(self) -> bool:

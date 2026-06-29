@@ -298,6 +298,99 @@ habit-sensors --all | jq -c '[.[].smell]'
 habit-sensors: sensor 'broken' failed: this-tool-does-not-exist
 ```
 
+## Plugin recommendation
+
+When the project clearly uses a language no active plugin covers, the runner
+prints a **non-fatal** hint to stderr naming the plugin to install. The hint
+never changes the findings on stdout nor the exit code; it is suppressed for any
+language an active plugin already declares.
+
+### A used language with no active plugin is recommended on stderr
+
+Here only `generic` is active (it declares no language), and a `*.py` file is in
+scope. The runner still exits per its findings (exit 0, the finding on stdout),
+and prints the Python recommendation to stderr.
+
+📄.habit-hooks/config.toml
+```toml
+plugins = ["generic"]
+files   = ["**/*.py"]
+```
+
+📄.habit-hooks/generic/config.toml
+```toml
+sensors = ["clean"]
+```
+
+📄.habit-hooks/generic/sensors/clean.toml
+```toml
+command = "cat ${dir}/clean.json"
+```
+
+📄.habit-hooks/generic/sensors/clean.json
+```json
+[]
+```
+
+📄app.py
+```python
+x = 1
+```
+
+```bash
+habit-sensors --all | jq -c '.'
+```
+
+🖥️ ✅
+```json
+[]
+```
+
+🚨
+```text
+habit-sensors: detected python; consider `pip install habit-hooks-python`
+```
+
+### An already-active plugin's language is not recommended
+
+The `python` plugin is active and declares `python`, so the same `*.py` file in
+scope produces **no** recommendation — stderr is empty (captured here as stdout).
+
+📄.habit-hooks/config.toml
+```toml
+plugins = ["python"]
+files   = ["**/*.py"]
+```
+
+📄.habit-hooks/python/config.toml
+```toml
+language = "python"
+sensors  = ["clean"]
+```
+
+📄.habit-hooks/python/sensors/clean.toml
+```toml
+command = "cat ${dir}/clean.json"
+```
+
+📄.habit-hooks/python/sensors/clean.json
+```json
+[]
+```
+
+📄app.py
+```python
+x = 1
+```
+
+```bash
+habit-sensors --all 2>&1 >/dev/null
+```
+
+🖥️ ✅
+```text
+```
+
 ## Scope
 
 `habit-sensors` first picks the files the leaf sensors see, then expands
