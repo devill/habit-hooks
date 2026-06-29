@@ -1,0 +1,5 @@
+# PHP plugin defaults.
+language = "php"
+files = ["**/*.php"]
+sensors = ["phpmd"]
+transformers = []

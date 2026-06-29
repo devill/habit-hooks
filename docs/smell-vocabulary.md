@@ -109,6 +109,27 @@ reuses the generic line-count sensor (its `--max` threshold, default 200).
 equivalent (ruff `PLR1702`) is preview/unstable, so it is deferred rather than
 opting into ruff `--preview`.
 
+## PHP plugin translation
+
+The raw rule names PHPMD emits, and the smell key each maps to (the rest of the
+catalogue is shared — only the plugin's sensors differ).
+
+| Raw key (tool:rule)         | Smell key             |
+|-----------------------------|-----------------------|
+| `phpmd:ExcessiveParameterList` | `too-many-parameters` |
+| `phpmd:CyclomaticComplexity`   | `high-complexity`     |
+| `phpmd:ExcessiveMethodLength`  | `oversized-function`  |
+| `phpmd:UnusedLocalVariable`    | `unused-variable`     |
+| `line-count:max-module-lines`  | `oversized-file`      |
+
+The PHP plugin runs PHPMD (`codesize,unusedcode` rulesets) through a thin sensor
+that normalises PHPMD's exit-2-on-violations and maps its rule names to canonical
+smells. Like Python, `oversized-file` has no clean PHPMD rule, so the PHP plugin
+reuses the generic line-count sensor — add `generic` to the project's `plugins`
+list alongside `php` to get it. PHPMD's `NPathComplexity` overlaps
+`CyclomaticComplexity`, so only the latter is mapped to avoid double-reporting the
+same function.
+
 ## Uncoached smells
 
 A smell with no configured guidance falls through to an **uncoached** bucket
