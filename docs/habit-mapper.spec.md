@@ -439,6 +439,8 @@ General guidance: the issues listed are code smells. They tell you that there is
 - Ask yourself why the rule exists in the first place. What is it telling you about the code?
 - Find a fix that improves maintainability, cuts cruft — doing the same with fewer statements where that lowers cognitive load — and/or improves security, scalability, and resilience.
 - AVOID AT ALL COST: any fix that is designed to appease the reporting tool, but goes against the spirit of the warning.
+
+src/x.ts
 ```
 
 ### A catalogued smell with no resolvable guide falls back to uncoached
@@ -446,7 +448,9 @@ General guidance: the issues listed are code smells. They tell you that there is
 A smell can be in the catalogue yet ship no guide for it (here `duplicate-import`
 is `enforced` but has no `duplicate-import.md`). Rather than crash, the mapper
 falls back to the generic `uncoached.md` guidance, so the run still coaches and
-fails on the enforced smell.
+fails on the enforced smell. Because `uncoached.md` serves any smell shape, its
+listing is adaptive: it renders `file:line` for a point-located issue and a bare
+`file` for a whole-file one, appending `content` only when present.
 
 ⌨️
 ```json
@@ -455,7 +459,9 @@ fails on the enforced smell.
     "smell": "duplicate-import",
     "details": {},
     "issues": [
-      { "key": "src/x.ts", "details": { "file": "src/x.ts" } }
+      { "key": "src/a.ts:2", "details": { "file": "src/a.ts", "line": 2, "content": "import x from 'x'" } },
+      { "key": "src/b.ts:9", "details": { "file": "src/b.ts", "line": 9 } },
+      { "key": "src/c.ts", "details": { "file": "src/c.ts" } }
     ]
   }
 ]
@@ -467,12 +473,16 @@ habit-mapper
 
 🖥️ ❌ 1
 ```text
-── duplicate-import (1 issue) ──
+── duplicate-import (3 issues) ──
 
 General guidance: the issues listed are code smells. They tell you that there is likely something wrong with the code. Follow these steps:
 - Ask yourself why the rule exists in the first place. What is it telling you about the code?
 - Find a fix that improves maintainability, cuts cruft — doing the same with fewer statements where that lowers cognitive load — and/or improves security, scalability, and resilience.
 - AVOID AT ALL COST: any fix that is designed to appease the reporting tool, but goes against the spirit of the warning.
+
+src/a.ts:2  import x from 'x'
+src/b.ts:9
+src/c.ts
 ```
 
 ## Config overrides
