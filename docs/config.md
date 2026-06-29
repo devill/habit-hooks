@@ -129,7 +129,6 @@ catalogue default ([smell-vocabulary.md](smell-vocabulary.md)).
 | `severity`            | `enforced` (fails the run, exit 1) or `suggested` (coaches only, exit 0). |
 | `disabled`            | Drop the smell — neither coached nor counted. |
 | `guide`               | Use a named guide file instead of `<smell>.md`. |
-| `include` / `exclude` | Glob filters scoping where the smell applies. |
 
 ```toml
 [smells.duplicated-code]

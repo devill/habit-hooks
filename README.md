@@ -20,7 +20,7 @@ This is the inspiration for habit hooks.
 Linters provide a deterministic metric, but Goodhart's law postulates that a metric ceases to be a good metric if
 it becomes a target. AI agents are very good at gaming these metrics when they are only provided the metric.
 
-Habit hooks wraps your linter to create the trigger, but instead of providing only the metric, it gives actionable
+Habit hooks runs your linters to create the trigger, but instead of providing only the metric, it gives actionable
 advice on how to fix the issue. This creates AI behaviour that looks like human habits, and has similar effects.
 
 The use of habit hooks:
@@ -28,137 +28,299 @@ The use of habit hooks:
 - Improves AI performance ensuring that the AI always starts with good code quality
 - Reduces token usage, since good quality code also means the AI doesn't need to read as much context to complete the task.
 
-## Install
+## How it works
 
-```sh
-npm install --save-dev habit-hooks
+Habit hooks is two small command-line tools joined by a Unix pipe. Between them flows a JSON array of **findings**.
+
+```
+habit-sensors <scope flags> | habit-mapper
 ```
 
-habit-hooks depends on `eslint`, `knip`, and `jscpd`, so installing it pulls those in as well — a fresh project gets every wrap target for free. If your project already has its own versions installed, habit-hooks detects and uses those instead and falls back to the bundled binaries only when none is present.
+- **`habit-sensors`** finds the smells. It runs the configured detectors over the files in scope and emits a
+  findings array on stdout.
+- **`habit-mapper`** acts on them. It reads the findings on stdin, groups them by smell, renders each smell's
+  coaching guide, and sets the exit code from each smell's severity (`enforced` fails the run with exit 1,
+  `suggested` coaches but exits 0).
 
-For Python projects, habit-hooks also wraps `ruff` and `deptry`. These are Python tools rather than npm packages, so they are not pulled in with habit-hooks. Install them yourself (for example `pip install ruff deptry`) to run habit-hooks on Python code.
+`habit-hooks` is just the composition of the two — `habit-sensors $ARGS | habit-mapper` — so the same arguments
+scope the run and the same findings drive the coaching. Because the stages talk only through findings on a pipe,
+each can be run, tested, or replaced on its own.
+
+Each sensor translates a tool's raw rule IDs into a tool-independent **smell key** (`max-params`, `PLR0913`, … all
+become `too-many-parameters`), and everything downstream routes on that key alone. The mapper picks a guide by
+smell, never by which tool reported it.
+
+## Install
+
+habit-hooks is a Python package (requires Python 3.11+). Install it with `uv` or `pip`:
+
+```sh
+uv tool install habit-hooks
+# or
+pip install habit-hooks
+```
+
+This installs four commands on your `PATH`: `habit-hooks`, `habit-sensors`, `habit-mapper`, and `habit-snooze`.
+
+The detectors themselves are **not** bundled — each plugin shells out to the real tool. Install the ones the
+plugins you enable need:
+
+- **generic** plugin: [`jscpd`](https://github.com/kucherenko/jscpd) (the line counter is built in)
+- **python** plugin: [`ruff`](https://docs.astral.sh/ruff/) and [`deptry`](https://github.com/fpgmaas/deptry)
+- **typescript** plugin: [`eslint`](https://eslint.org/), [`knip`](https://knip.dev/), and `jq`
+
+`habit-sensors` prepends `node_modules/.bin` and `.venv/bin` to `PATH`, so a project's locally-installed tools are
+found without being on the global `PATH`.
 
 ## Quick start
 
+Create a `.habit-hooks/` directory in your project with a `config.toml` that lists the plugins to run:
+
+```toml
+# .habit-hooks/config.toml
+plugins = ["generic", "python"]
+files = ["**/*.py"]
+```
+
+Then run habit-hooks against the files changed on your branch:
+
 ```sh
-npx habit-hooks init
+habit-hooks
 ```
 
-`init` detects which of eslint / knip / jscpd are already installed and configured, scaffolds starter configs for the missing ones, writes `habit-hooks.config.js` and an empty baseline, and offers to wire up `package.json` scripts, a pre-commit hook, and the bundled reviewer skill. Run with `--dry-run` to see every intended write without touching disk.
-
-Then:
+Or scope the run explicitly:
 
 ```sh
-npx habit-hooks
+habit-hooks --all            # every file
+habit-hooks --file src/billing.py
+habit-hooks --branch main    # files changed vs a base ref
+habit-hooks --last 3         # files changed in the last 3 commits
+habit-hooks --since <ref>    # files changed since a commit
 ```
 
-That runs every wrapped tool against files changed since the branch base.
+The scope flags are mutually exclusive. With no flag, the scope is derived from the `[scope]` config (see below).
 
-## What it catches
+## Plugins
 
-Habit-hooks wraps your existing eslint, knip, and jscpd. Whatever rules and thresholds those tools fire is what habit-hooks surfaces — the rules come from your project's `eslint.config.*`, `knip.json`, `.jscpd.json` (or matching `package.json` keys), not from habit-hooks.
-
-What habit-hooks adds on top is the *why this is a smell* and *how to fix it* guidance. For the rule ids below we ship a coaching prompt; everything else surfaces under a single "Uncoached rules" section so you don't lose visibility on rules we haven't tuned.
-
-**Coached rule ids**
-
-| Source | Rule id |
-| --- | --- |
-| eslint | `eslint:max-lines-per-function` |
-| eslint | `eslint:max-params` |
-| eslint | `eslint:complexity` |
-| eslint | `eslint:max-lines` |
-| eslint | `eslint:no-unused-vars` |
-| eslint | `eslint:eqeqeq` |
-| eslint | `eslint:no-var` |
-| eslint | `eslint:prefer-const` |
-| eslint | `eslint:no-duplicate-imports` |
-| eslint | `eslint:no-warning-comments` |
-| eslint | `eslint:@typescript-eslint/no-explicit-any` |
-| eslint | `eslint:@typescript-eslint/no-non-null-assertion` |
-| eslint | `eslint:@typescript-eslint/no-inferrable-types` |
-| eslint | `eslint:boundaries/dependencies` |
-| knip | `knip:classMembers` |
-| knip | `knip:files` |
-| knip | `knip:exports` |
-| knip | `knip:types` |
-| knip | `knip:dependencies` |
-| jscpd | `jscpd:duplication` |
-| custom | `comment:non-essential` |
-
-**Uncoached rules**
-
-Any rule habit-hooks doesn't yet coach still gets surfaced — grouped under a single "Uncoached rules" section in the output so the agent can see what fired. To add coaching for a rule, drop a `<slugified-rule-id>.md` file in the configured prompts directory (replace `:` and `/` with `-`, drop `@`). habit-hooks will use that prompt instead of treating the rule as uncoached.
-
-## CLI
+Everything language- or tool-specific lives in a **plugin** — a self-contained bundle of files:
 
 ```
-habit-hooks                       run all wrapped checks against the default scope
-habit-hooks --last <n>            check files changed in the last N commits
-habit-hooks --branch [name]       check files changed vs branch (default: scope.branchBase)
-habit-hooks --since <hash>        check files changed since the given commit
-habit-hooks --all                 force checking all files (ignore scope config)
-habit-hooks --config <path>       use an explicit config file
-habit-hooks --version             print version
-
-habit-hooks init                  scaffold tool configs, habit-hooks config, scripts, hooks
-habit-hooks init --dry-run        show every intended write without touching disk
-
-habit-hooks baseline generate     write a fresh baseline snapshot
-habit-hooks baseline status       summarise current baseline contents
-habit-hooks baseline snooze       add the current violations to the baseline
-habit-hooks baseline forget       remove specific files from the baseline
-habit-hooks baseline prune        drop baseline entries whose files no longer exist
+<plugin>/
+  config.toml      # what this plugin contributes, and the language it speaks
+  sensors/         # how it finds smells
+  transformers/    # how it reshapes findings
+  guides/          # how it coaches each fix
 ```
 
-`--last`, `--branch`, `--since`, and `--all` are mutually exclusive.
+A project turns plugins on by listing them, in order, in `.habit-hooks/config.toml`:
 
-## Opinionated by design
+```toml
+plugins = ["generic", "python"]
+```
 
-habit-hooks ships with strong opinions baked in: small functions, few parameters, low complexity, no comments standing in for unclear code, no `any`, no dead exports, no copy-pasted blocks. The scaffolded ESLint config from `npx habit-hooks init` reflects those opinions (12-line functions, 3-param max, etc.).
+That list is **ordered, and the order is a priority.** It is the order sensors run and concatenate, and the order
+the mapper looks up guides: to coach a finding the mapper walks the plugins in turn and takes the first one that
+has a guide for that smell and language, falling back to `generic` last. So an earlier plugin overrides a later
+one for the same smell.
 
-If you disagree with a threshold, change it. Every rule habit-hooks coaches comes from your project's own `eslint.config.*` / `knip.json` / `.jscpd.json` — you have full control. The bundled coaching prompts assume the opinionated defaults; if you loosen a threshold significantly the prompt may read a bit overconfident, but it will still point in the right direction.
+A plugin is not a language — it *declares* the language it speaks in its `config.toml`, and the runner stamps that
+onto the plugin's findings. So several plugins can speak the same language using different tools, and the order
+decides which one's guide wins. `generic` is listed explicitly like any other plugin, so a project can drop it.
+
+The three plugins that ship:
+
+| Plugin | Language | Sensors | Tools used |
+|--------|----------|---------|------------|
+| `generic` | (none) | `line-count`, `jscpd` | built-in line counter, jscpd |
+| `python` | `python` | `ruff`, `deptry` | ruff, deptry |
+| `typescript` | `typescript` | `eslint`, `knip`, `comment` | eslint, knip, ts-morph |
+
+## Overrides: tune without forking
+
+A project keeps its overrides in `.habit-hooks/`, mirroring the plugin layout but holding **only what differs**
+from the defaults. Defaults always resolve from the installed package, so updating habit-hooks never clobbers a
+project's tuning.
+
+Every file is resolved by walking the active plugins in order and, for each, trying the project's override before
+the package's default:
+
+```
+.habit-hooks/<plugin>/   →   <package>/plugins/<plugin>/
+```
+
+So to replace the generic `too-many-parameters` coaching guide, drop your own at
+`.habit-hooks/generic/guides/too-many-parameters.md`. To swap out a sensor, override its `.toml` under
+`.habit-hooks/<plugin>/sensors/`. Configuration merges the same way, with the project last and winning.
 
 ## Configuration
 
-habit-hooks looks for `habit-hooks.config.ts` (or `.js` / `.mjs`) in the project root. The config shape is intentionally small — all rule thresholds, plugin choices, and ignores live in your eslint / knip / jscpd configs, not here.
+All configuration is TOML. The project's `.habit-hooks/config.toml` is merged over the plugin defaults — generic
+first, then each plugin's defaults, then the project, project last and winning. Every field is optional; an empty
+file means "use the plugin defaults".
 
-```ts
-// habit-hooks.config.ts
-import type { HabitHooksConfig } from 'habit-hooks';
+One file is read by both stages, each picking out the keys it cares about:
 
-const config: HabitHooksConfig = {
-  prompts: './prompts',
-  rules: {
-    'comment:non-essential': { disabled: true },
-    'eslint:max-params': { exclude: ['**/*.test.ts', 'tests/**'] },
-  },
-  scope: {
-    onlyChangedFiles: true,
-    branchBase: 'main',
-  },
-  commentCheck: {
-    maxSingleLineChars: 10,
-    maxBlockChars: 15,
-  },
-};
+| Stage | Reads |
+|-------|-------|
+| `habit-sensors` (the runner) | `plugins`, `transformers`, `files`, `[scope]`, `[sensors.*]` |
+| `habit-mapper` (the router)  | `[smells.*]`, `[runners]` |
 
-export default config;
+### Root keys
+
+```toml
+plugins = ["generic", "python"]   # ordered = lookup priority; drop "generic" to disable it
+transformers = ["snooze"]         # applied to the whole run's findings, in order
+files = ["**/*.py"]               # discovery globs (pathspec / gitwildmatch)
 ```
 
-What you can set per rule: `disabled`, `include`, `exclude`, `severity`. Everything else (e.g. `max-params: ['error', { max: 5 }]`) belongs in `eslint.config.*`. The `prompts` directory lets you override or add coaching text — drop a `<rule-id>.md` file in there (with `:` and `/` replaced by `-`, `@` dropped) and habit-hooks will use it instead of the bundled prompt. The `commentCheck` block tunes the character thresholds at which the custom `comment:non-essential` rule starts flagging single-line and block comments (defaults shown above). See `src/config/schema.ts` for the full schema.
+`files` uses pathspec (gitwildmatch) matching, which has **no brace expansion** — write one pattern per
+extension, never a `{…}` alternation:
 
-Note: `disabled: true` only suppresses the habit-hooks coaching prompt. The underlying ESLint / knip / jscpd rule still fires and the violation will appear under "Uncoached rules". To silence a rule entirely, disable it in the tool's own config (e.g. `eslint.config.*`).
+```toml
+files = ["**/*.ts", "**/*.tsx"]   # correct
+# files = "**/*.{ts,tsx}"           wrong — matched literally, never expanded
+```
 
-## Baseline
+### `[scope]`
 
-habit-hooks supports a committed-to-repo baseline at `.habit-hooks-baseline.json`. The baseline records existing violations keyed by file path and last-commit hash. A violation is skipped only when:
+When a run is invoked with no explicit scope flag, the scope is derived from `[scope]`:
 
-1. The file appears in the baseline, and
-2. The file's last-commit hash matches the baseline entry, and
-3. The working tree for that file is clean.
+```toml
+[scope]
+changedOnly = false        # restrict the default run to uncommitted (git-changed) files
+autoBranchOffMain = true   # when not on mainBranch, default to diffing against branchBase
+branchBase = "main"        # base ref for branch-relative scoping
+mainBranch = "main"        # the branch on which autoBranchOffMain does not kick in
+```
 
-Touch the file (commit, stage, or modify) and the baseline entry stops applying — you cannot drift past your snoozed violations by accident. Use `habit-hooks baseline snooze` to onboard a legacy project; use `habit-hooks baseline prune` to clean up after deletions.
+### `[sensors.<name>]`
+
+Override a sensor a plugin already ships:
+
+```toml
+# Turn off a sensor the plugin ships.
+[sensors.knip]
+disabled = true
+
+# Narrow the generic line-count sensor to source files.
+[sensors.line-count]
+files = ["src/**/*.py"]
+```
+
+Fields: `disabled`, `files`, `command`, `language`.
+
+### `[smells.<name>]`
+
+Per-smell routing overrides, keyed by smell. A smell with no override uses the catalogue default.
+
+```toml
+# Demote a smell from blocking to advisory.
+[smells.duplicated-code]
+severity = "suggested"
+
+# Reuse a shared guide instead of redundant-type-annotation.md.
+[smells.redundant-type-annotation]
+guide = "style-nit.md"
+```
+
+Fields: `severity` (`enforced` / `suggested`), `disabled`, `guide`.
+
+### `[runners]`
+
+The mapper renders each smell's guide. A `.md` guide is rendered as a Jinja2 template and needs no runner. Any
+other extension needs one: `[runners]` maps a guide-file extension to the command that runs it, and the mapper
+invokes `<command> guides/<smell>.<ext>` with the finding on stdin, using its exit code for pass/fail. No
+non-`.md` guide runs unless its extension is opted in here.
+
+```toml
+[runners]
+py = "python"
+js = "node"
+```
+
+## Snoozing existing violations
+
+`habit-snooze` is a transformer: with no arguments it reads findings on stdin, drops the issues a project has
+chosen to ignore, and prints the rest. Insert it as a stage in the pipe:
+
+```sh
+habit-sensors --all | habit-snooze | habit-mapper
+```
+
+It drops any issue whose `key` (the filename by default) is in a checked-in index at `.habit-hooks/snooze.json`.
+When a finding loses its last issue, the finding goes with it. Maintain the index by piping findings into it:
+
+```sh
+habit-sensors --all | habit-snooze --snooze   # add the current run's keys to the index
+habit-sensors --all | habit-snooze --prune    # drop keys that no longer show up
+habit-snooze --list                            # print the snoozed keys, one per line
+```
+
+To fold snoozing into a plain `habit-hooks` run, register it as a root transformer in your config and ship a
+matching transformer file (`.habit-hooks/<plugin>/transformers/snooze.toml` whose `command = "habit-snooze"`):
+
+```toml
+transformers = ["snooze"]
+```
+
+## What it catches
+
+The smell vocabulary is tool-independent: sensors translate raw rule IDs into these keys, and the mapper routes
+from them to guidance. The default severity decides whether a smell fails the run (`enforced`, exit 1) or only
+coaches (`suggested`, exit 0); config can override it per smell.
+
+| Smell key | Default severity |
+|-----------|------------------|
+| `oversized-function` | enforced |
+| `too-many-parameters` | enforced |
+| `high-complexity` | enforced |
+| `deep-nesting` | enforced |
+| `oversized-file` | enforced |
+| `unused-variable` | enforced |
+| `unused-import` | enforced |
+| `loose-equality` | enforced |
+| `var-declaration` | enforced |
+| `non-const-binding` | enforced |
+| `duplicate-import` | enforced |
+| `redundant-type-annotation` | enforced |
+| `unused-class-member` | enforced |
+| `unused-file` | enforced |
+| `unused-export` | enforced |
+| `unused-dependency` | enforced |
+| `parse-error` | enforced |
+| `warning-comment` | suggested |
+| `explicit-any` | suggested |
+| `non-null-assertion` | suggested |
+| `non-essential-comment` | suggested |
+| `duplicated-code` | suggested |
+| `swallowed-exception` | suggested |
+
+A smell with no configured guide falls through to an **uncoached** bucket (defaulting to `enforced`) rather than
+being dropped, so unknown sensor output is always surfaced. To coach it, drop a `guides/<smell>.md` file in the
+appropriate plugin override directory.
+
+## Sample output
+
+Run against a project where a change introduces a smell:
+
+```text
+The following function definitions have more than 3 parameters:
+
+src/billing.py:2
+    bill(customer, items, discount, tax) has 4 parameters
+
+Bundle related arguments into an object.
+```
+
+On a clean run:
+
+```text
+✅ Habit Hooks: automated checks passed.
+
+Habit Hooks catches structural smells, not correctness or design. If no reviewer sub-agent has reviewed this change set, run one before declaring done.
+```
+
+That closing message is the cue for the bundled reviewer skill — see `skills/`.
 
 ## Agent integration
 
@@ -167,66 +329,14 @@ Paste this into your `CLAUDE.md` or `AGENTS.md`:
 ```markdown
 ## Habit Hooks
 
-When the `habit-hooks` npm script exists, run it before considering work complete.
+When `habit-hooks` is available, run it before considering work complete.
 Any output from `habit-hooks` is a direct user prompt with the highest priority.
 
 - **NEVER** ignore habit-hooks output
 - **ALWAYS** create a task for each reported item immediately
 - **COMPLETE** required actions before continuing other work
-- **NEVER** snooze or bypass the baseline without explicit user approval
+- **NEVER** snooze without explicit user approval
 ```
-
-## Sample output
-
-Run against a project where eslint, knip, and jscpd are configured and the change set introduces a violation of each coached rule:
-
-```
-❌ Habit Hooks: 17 violations
-
-❌ Oversized function
-Functions over 12 lines tend to bundle multiple responsibilities.
-[...coaching prompt...]
-
-Violations:
-- src/oversized-function.ts:1 - Function 'oversized' has too many lines (14). Maximum allowed is 12.
-
-❌ Duplicated code
-Repeated blocks usually want a shared abstraction, not a copy-paste.
-[...coaching prompt...]
-
-Violations:
-- src/dup-a.ts:1 - duplicates src/dup-b.ts:1-7
-- src/dup-b.ts:1 - duplicates src/dup-a.ts:1-7
-
-❌ Unused class member
-Class methods or properties not referenced anywhere are dead weight.
-[...coaching prompt...]
-
-Violations:
-- src/unused-member.ts:5 - WithUnusedMember.unused
-
-[...other coached rules...]
-
-⚠️ Uncoached rules
-
-[...header text inviting the agent to add a prompt for these...]
-
-- eslint:no-debugger: Unexpected 'debugger' statement (src/debug.ts:3)
-```
-
-On a clean run:
-
-```
-✅ Habit Hooks: automated checks passed.
-
-Habit Hooks catches structural smells, not correctness or design. If no reviewer sub-agent has reviewed this change set, run one before declaring done.
-```
-
-That closing message is the cue for the `habit-hooks-review` skill — see `src/skills/habit-hooks-review/SKILL.md`.
-
-## Status
-
-v2 wrap pivot landed: eslint / knip / jscpd are now wrapped (not invoked programmatically), the rule set comes from your project configs, and `init` does the heavy lifting of scaffolding starter configs. Pre-release; the first npm publish is pending.
 
 ## Contributing
 
