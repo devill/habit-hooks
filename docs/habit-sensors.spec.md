@@ -391,6 +391,92 @@ habit-sensors --all 2>&1 >/dev/null
 ```text
 ```
 
+### A package.json alone does not signal TypeScript
+
+A non-TypeScript project may carry a `package.json` only to configure a Node tool
+(a linter, a duplication detector). That alone is **not** a TypeScript signal —
+with no `tsconfig.json` and no `*.ts`/`*.tsx` in scope, no recommendation prints.
+
+📄.habit-hooks/config.toml
+```toml
+plugins = ["generic"]
+files   = ["**/*.py"]
+```
+
+📄.habit-hooks/generic/config.toml
+```toml
+sensors = ["clean"]
+```
+
+📄.habit-hooks/generic/sensors/clean.toml
+```toml
+command = "cat ${dir}/clean.json"
+```
+
+📄.habit-hooks/generic/sensors/clean.json
+```json
+[]
+```
+
+📄package.json
+```json
+{ "name": "demo", "devDependencies": { "jscpd": "^4" } }
+```
+
+📄app.py
+```python
+x = 1
+```
+
+```bash
+habit-sensors --all 2>&1 >/dev/null
+```
+
+🖥️ ✅
+```text
+habit-sensors: detected python; consider `pip install habit-hooks-python`
+```
+
+### A tsconfig.json signals TypeScript
+
+A `tsconfig.json` is a real TypeScript signal, so with no active plugin declaring
+`typescript` the runner recommends the plugin.
+
+📄.habit-hooks/config.toml
+```toml
+plugins = ["generic"]
+files   = ["**/*.py"]
+```
+
+📄.habit-hooks/generic/config.toml
+```toml
+sensors = ["clean"]
+```
+
+📄.habit-hooks/generic/sensors/clean.toml
+```toml
+command = "cat ${dir}/clean.json"
+```
+
+📄.habit-hooks/generic/sensors/clean.json
+```json
+[]
+```
+
+📄tsconfig.json
+```json
+{ "compilerOptions": { "strict": true } }
+```
+
+```bash
+habit-sensors --all 2>&1 >/dev/null
+```
+
+🖥️ ✅
+```text
+habit-sensors: detected typescript; consider `pip install habit-hooks-typescript`
+```
+
 ## Scope
 
 `habit-sensors` first picks the files the leaf sensors see, then expands

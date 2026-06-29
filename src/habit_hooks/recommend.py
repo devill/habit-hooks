@@ -22,7 +22,7 @@ class LanguageSignal:
 
 LANGUAGE_SIGNALS = (
     LanguageSignal("python", ("pyproject.toml",), (".py",)),
-    LanguageSignal("typescript", ("tsconfig.json", "package.json"), (".ts", ".tsx")),
+    LanguageSignal("typescript", ("tsconfig.json",), (".ts", ".tsx")),
     LanguageSignal("php", ("composer.json",), (".php",)),
 )
 
