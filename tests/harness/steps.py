@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import string
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,7 +76,8 @@ class SetEnv:
     block: str | None = None
 
     def apply(self, c: Context) -> None:
-        c.env[self.var] = self.block
+        mapping = {**c.env, "PWD": str(c.workdir)}
+        c.env[self.var] = string.Template(self.block).safe_substitute(mapping)
 
 
 @dataclass

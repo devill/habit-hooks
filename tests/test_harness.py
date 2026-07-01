@@ -73,6 +73,12 @@ def test_env_marker_sets_variable(tmp_path):
     assert run(spec, tmp_path) == ["pass"]
 
 
+def test_env_marker_expands_variables(tmp_path):
+    spec = ("# T\n✏️X\n```text\na\n```\n✏️Y\n```text\n$X/b\n```\n"
+            "```bash\nprintf '%s' \"$Y\"\n```\n🖥️ ✅\n```text\na/b\n```\n")
+    assert run(spec, tmp_path) == ["pass"]
+
+
 def test_file_write_marker(tmp_path):
     spec = "# T\n📄data/x.txt\n```text\ncontent here\n```\n```bash\ncat data/x.txt\n```\n🖥️ ✅\n```text\ncontent here\n```\n"
     assert run(spec, tmp_path) == ["pass"]
