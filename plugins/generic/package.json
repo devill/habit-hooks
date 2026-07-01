@@ -1,0 +1,8 @@
+{
+  "name": "habit-hooks-generic",
+  "private": true,
+  "version": "0.0.0",
+  "devDependencies": {
+    "jscpd": "^4.2.4"
+  }
+}

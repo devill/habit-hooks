@@ -1,0 +1,13 @@
+{
+  "name": "habit-hooks-typescript",
+  "private": true,
+  "version": "0.0.0",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "eslint": "^10.4.0",
+    "knip": "^5.88.1",
+    "ts-morph": "^28.0.0",
+    "typescript": "^6.0.3"
+  }
+}

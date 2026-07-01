@@ -5,10 +5,13 @@ These cases run the **actual** tools (`eslint`, `knip`, and a `ts-morph` comment
 scan) against a fixture with a known smell and assert the canonical finding comes
 out, mapped to the smell keys in [smell-vocabulary.md](smell-vocabulary.md).
 
-`habit-sensors` is the installed CLI. The Node tools live in the repo's
-`node_modules` (two dirs up from a case dir), so each invocation puts that
-`node_modules/.bin` on `PATH` and exposes it as `NODE_PATH` so `eslint`, `knip`,
-and `ts-morph` resolve from the temp fixture.
+`habit-sensors` is the installed CLI. The Node tools live in the typescript
+plugin's own `node_modules` (`plugins/typescript/node_modules`, reachable as
+`../../plugins/typescript/node_modules` from a case dir). Each case symlinks that
+into the fixture as `./node_modules` and puts its `.bin` on `PATH` — the shipped
+`eslint.config.mjs` and `knip` resolve their plugin deps through the normal
+`node_modules` walk (ESM `import` ignores `NODE_PATH`), and `ts-morph`'s
+`require` resolves the same way.
 
 📄.habit-hooks/config.toml
 ```toml
@@ -49,7 +52,8 @@ disabled = true
 ```
 
 ```bash
-PATH="$PWD/../../node_modules/.bin:$PATH" NODE_PATH="$PWD/../../node_modules" habit-sensors --all | jq -c 'sort_by(.smell)[] | {smell, language, key: (.issues[0].key | sub(".*/"; "")), line: .issues[0].details.line, source: .issues[0].details.source}'
+ln -s ../../plugins/typescript/node_modules node_modules
+PATH="$PWD/node_modules/.bin:$PATH" habit-sensors --all | jq -c 'sort_by(.smell)[] | {smell, language, key: (.issues[0].key | sub(".*/"; "")), line: .issues[0].details.line, source: .issues[0].details.source}'
 ```
 
 🖥️ ✅
@@ -92,7 +96,8 @@ disabled = true
 ```
 
 ```bash
-PATH="$PWD/../../node_modules/.bin:$PATH" NODE_PATH="$PWD/../../node_modules" habit-sensors --all | jq -c '.[] | {smell, language, key: .issues[0].key, file: .issues[0].details.file, source: .issues[0].details.source}'
+ln -s ../../plugins/typescript/node_modules node_modules
+PATH="$PWD/node_modules/.bin:$PATH" habit-sensors --all | jq -c '.[] | {smell, language, key: .issues[0].key, file: .issues[0].details.file, source: .issues[0].details.source}'
 ```
 
 🖥️ ✅
@@ -126,7 +131,8 @@ disabled = true
 ```
 
 ```bash
-PATH="$PWD/../../node_modules/.bin:$PATH" NODE_PATH="$PWD/../../node_modules" habit-sensors --all | jq -c '.[] | {smell, language, key: (.issues[0].key | sub(".*/"; "")), line: .issues[0].details.line, source: .issues[0].details.source}'
+ln -s ../../plugins/typescript/node_modules node_modules
+PATH="$PWD/node_modules/.bin:$PATH" habit-sensors --all | jq -c '.[] | {smell, language, key: (.issues[0].key | sub(".*/"; "")), line: .issues[0].details.line, source: .issues[0].details.source}'
 ```
 
 🖥️ ✅

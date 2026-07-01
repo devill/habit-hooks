@@ -87,6 +87,7 @@ export function alpha(x: number, y: number) {
   const product = x * y;
   const diff = x - y;
   const quotient = x / y;
+  const scaled = sum * product;
   return { sum, product, diff, quotient };
 }
 ```
@@ -98,13 +99,14 @@ export function beta(x: number, y: number) {
   const product = x * y;
   const diff = x - y;
   const quotient = x / y;
+  const scaled = sum * product;
   return { sum, product, diff, quotient };
 }
 ```
 
 ```bash
-ln -s ../../node_modules node_modules
-habit-sensors --all | jq -c '.[] | {smell, files: [.issues[].key], source: .issues[0].details.source}'
+ln -s ../../plugins/generic/node_modules node_modules
+PATH="$PWD/node_modules/.bin:$PATH" habit-sensors --all | jq -c '.[] | {smell, files: [.issues[].key | sub(".*/"; "")], source: .issues[0].details.source}'
 ```
 
 🖥️ ✅
