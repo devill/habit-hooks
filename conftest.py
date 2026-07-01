@@ -1,4 +1,4 @@
-"""Collect the executable specs (``docs/**/*.spec.md``) as pytest tests.
+"""Collect the executable specs (``docs/**/*.spec.md`` and ``plugins/*/docs/*.spec.md``, both under pytest's ``testpaths``) as pytest tests.
 
 Each leaf spec case (per ``docs/executable_spec.md``) becomes one pytest item,
 so ``uv run pytest`` reports the specs alongside the harness's own unit tests

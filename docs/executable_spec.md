@@ -2,7 +2,7 @@
 
 A `*.spec.md` file is runnable documentation. Prose explains; specially-marked
 steps execute and are asserted, so the examples can never drift from the code.
-Files are discovered by `docs/**/*.spec.md` and run by the spec test harness.
+Files are discovered under the test roots — `docs/**/*.spec.md` and each plugin's own `plugins/*/docs/*.spec.md` — and run by the spec test harness.
 
 ## Execution contexts
 

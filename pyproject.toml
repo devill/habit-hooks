@@ -52,7 +52,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "docs"]
+testpaths = ["tests", "docs", "plugins"]
 pythonpath = ["tests", "src"]
 
 [tool.deptry]

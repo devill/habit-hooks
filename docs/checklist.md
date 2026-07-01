@@ -1,7 +1,7 @@
 # Rebuild checklist
 
 The `simplified` rewrite, phase by phase. Source of truth for *what to build* is
-the executable specs in `docs/**/*.spec.md`; this file tracks *order* and the
+the executable specs in `docs/**/*.spec.md` and `plugins/*/docs/*.spec.md`; this file tracks *order* and the
 decisions taken while reconciling the docs. See [DECISIONS.md](DECISIONS.md) for
 rationale.
 
@@ -90,14 +90,14 @@ authoritative:
 
 ## Phase 1 — Spec test harness (build first)
 
-A Python harness that runs `docs/**/*.spec.md` per [executable_spec.md](executable_spec.md):
+A Python harness that runs `docs/**/*.spec.md` and `plugins/*/docs/*.spec.md` per [executable_spec.md](executable_spec.md):
 execution contexts, preamble inheritance, the marker grammar, skip (`🟡`), exit
 and stderr assertions, output normalisation. It is a dev/test tool, not a shipped
 command.
 
 - [ ] Implement the harness with its **own unit tests** (every marker, context
       isolation, ancestor preamble accumulation, skip reporting, normalisation).
-- [ ] Discover and run `docs/**/*.spec.md`; report pass / skip / fail.
+- [ ] Discover and run `docs/**/*.spec.md` and `plugins/*/docs/*.spec.md`; report pass / skip / fail.
 - [ ] Green on the pure-jq cases (`authoring-plugins.spec.md`,
       `sensor-interface.spec.md`) and reports the `🟡` cases as skipped without
       erroring.
