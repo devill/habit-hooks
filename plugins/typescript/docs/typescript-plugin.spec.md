@@ -6,12 +6,13 @@ scan) against a fixture with a known smell and assert the canonical finding come
 out, mapped to the smell keys in [smell-vocabulary.md](smell-vocabulary.md).
 
 `habit-sensors` is the installed CLI. The Node tools live in the typescript
-plugin's own `node_modules` (`plugins/typescript/node_modules`, reachable as
-`../../plugins/typescript/node_modules` from a case dir). Each case symlinks that
-into the fixture as `./node_modules` and puts its `.bin` on `PATH` — the shipped
-`eslint.config.mjs` and `knip` resolve their plugin deps through the normal
-`node_modules` walk (ESM `import` ignores `NODE_PATH`), and `ts-morph`'s
-`require` resolves the same way.
+plugin's own `node_modules` (`plugins/typescript/node_modules`). The intro
+symlinks that into each case as `./node_modules` and puts its `.bin` on `PATH`
+once — the shipped `eslint.config.mjs` and `knip` resolve their plugin deps
+through the normal `node_modules` walk (ESM `import` ignores `NODE_PATH`, which
+is why we symlink rather than set it), and `ts-morph`'s `require` resolves the
+same way. The cases share `finding.jq` to project each finding down to the
+asserted fields.
 
 📄.habit-hooks/config.toml
 ```toml
@@ -21,6 +22,27 @@ plugins = ["typescript"]
 📄package.json
 ```json
 { "name": "demo", "version": "0.0.0" }
+```
+
+📄finding.jq
+```jq
+sort_by(.smell)[]
+| {
+    smell,
+    language,
+    key: (.issues[0].key | sub(".*/"; "")),
+    line: .issues[0].details.line,
+    source: .issues[0].details.source
+  }
+```
+
+```bash
+ln -s ../../plugins/typescript/node_modules node_modules
+```
+
+✏️PATH
+```text
+$PWD/node_modules/.bin:$PATH
 ```
 
 ## eslint adapter maps rule IDs to canonical smells
@@ -52,13 +74,18 @@ disabled = true
 ```
 
 ```bash
-ln -s ../../plugins/typescript/node_modules node_modules
-PATH="$PWD/node_modules/.bin:$PATH" habit-sensors --all | jq -c 'sort_by(.smell)[] | {smell, language, key: (.issues[0].key | sub(".*/"; "")), line: .issues[0].details.line, source: .issues[0].details.source}'
+habit-sensors --all | jq -f finding.jq
 ```
 
 🖥️ ✅
 ```json
-{"smell":"too-many-parameters","language":"typescript","key":"billing.ts","line":1,"source":"eslint:max-params"}
+{
+  "smell": "too-many-parameters",
+  "language": "typescript",
+  "key": "billing.ts",
+  "line": 1,
+  "source": "eslint:max-params"
+}
 ```
 
 ## knip sensor maps an unused export to unused-export
@@ -96,13 +123,18 @@ disabled = true
 ```
 
 ```bash
-ln -s ../../plugins/typescript/node_modules node_modules
-PATH="$PWD/node_modules/.bin:$PATH" habit-sensors --all | jq -c '.[] | {smell, language, key: .issues[0].key, file: .issues[0].details.file, source: .issues[0].details.source}'
+habit-sensors --all | jq '.[] | {smell, language, key: .issues[0].key, file: .issues[0].details.file, source: .issues[0].details.source}'
 ```
 
 🖥️ ✅
 ```json
-{"smell":"unused-export","language":"typescript","key":"neverUsed","file":"src/helper.ts","source":"knip:exports"}
+{
+  "smell": "unused-export",
+  "language": "typescript",
+  "key": "neverUsed",
+  "file": "src/helper.ts",
+  "source": "knip:exports"
+}
 ```
 
 ## comment sensor maps a non-essential comment to non-essential-comment
@@ -131,11 +163,16 @@ disabled = true
 ```
 
 ```bash
-ln -s ../../plugins/typescript/node_modules node_modules
-PATH="$PWD/node_modules/.bin:$PATH" habit-sensors --all | jq -c '.[] | {smell, language, key: (.issues[0].key | sub(".*/"; "")), line: .issues[0].details.line, source: .issues[0].details.source}'
+habit-sensors --all | jq -f finding.jq
 ```
 
 🖥️ ✅
 ```json
-{"smell":"non-essential-comment","language":"typescript","key":"util.ts","line":2,"source":"comment:non-essential"}
+{
+  "smell": "non-essential-comment",
+  "language": "typescript",
+  "key": "util.ts",
+  "line": 2,
+  "source": "comment:non-essential"
+}
 ```
